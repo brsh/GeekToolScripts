@@ -24,6 +24,12 @@ Huge info script. Shows:
 * gt-weather.sh
 Obligatory weather information. Includes temp, forecast, the usual....
 
+* gt-quote.sh
+Obligatory quote script
+
+* gt-time.sh
+Simple display of time in a couple zones...
+
 * progbar.sh
 Simple 2-color progress bar
 
