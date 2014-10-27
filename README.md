@@ -31,5 +31,27 @@ Obligatory quote script
 Simple display of time in a couple zones...
 
 * progbar.sh
-Simple 2-color progress bar
+Simple multi-color progress bar (now, not so simple...)
+	progbar.sh [options] amount [total] [width] 
+        -r	Reverse the bar's order
+        -l	Label
+        -p	Label position (L, R, or LR)
+        -b	Background color
+        -n	Normal indicator color
+        -u	High indicator color
+        -t	High threshold (percent)
+        -o	Low indicator color
+        -w	Low threshold (percent)
+		Color Options: Black, Red, Yellow, Blue, Green, Purple, Cyan, White, Off
 
+* gt-meters.sh
+Uses progbar.sh to output load, cpu, memory, and disk utilization. Also battery.
+ALSO, out prints out top processes by cpu and by memory util, in 2 cols.
+Includes command line switches to select what displays and in what order....
+		-l	load bar
+		-c	cpu util bar
+		-m	mem util bar
+		-d	disk util bar
+		-b	batt util bar
+		-p	processes
+	Bars are colored based on various %ages
