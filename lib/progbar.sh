@@ -1,5 +1,5 @@
 #!/bin/bash
-. ~/scripts/geektool/colors.sh
+. ~/scripts/geektool/lib/lib_colors.sh
 
 function show_help {
 	echo " "

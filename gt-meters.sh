@@ -1,15 +1,15 @@
 #!/bin/bash
 Width=50
-ScriptLoc="~/scripts/geektool"
-. ~/scripts/geektool/colors.sh
+ScriptLoc="$(dirname $0)/lib"
+. ${ScriptLoc}/lib_colors.sh
 BG="Off"
 
 function out-batt {
-	local ioreg=$(ioreg -n AppleSmartBattery | grep "ExternalConnected\|CurrentCapacity\|MaxCapacity\|IsCharging" | awk '{print $5}')
-	local ac_adapt=$(echo ${ioreg} | awk '{print $1}')
-	local ac_charging=$(echo ${ioreg} | awk '{print $4}')
-	local max_power=$(echo ${ioreg} | awk '{print $2}')
-	local cur_power=$(echo ${ioreg} | awk '{print $3}')
+	local ioreg=$(ioreg -n AppleSmartBattery | grep "ExternalConnected\|CurrentCapacity\|MaxCapacity\|IsCharging" | sed -e s/\|//g -e s/\ //g -e s/=/\ / -e s/\"//g)
+	local ac_adapt=$(echo "$ioreg" | awk ' /External/ { print $2 }')
+	local ac_charging=$(echo "$ioreg" | awk ' /Charg/ { print $2 }')
+	local max_power=$(echo "$ioreg" | awk ' /Max/ { print $2 }')
+	local cur_power=$(echo "$ioreg" | awk ' /Current/ { print $2 }')
 	local bat_percent=$(echo "scale=2;${cur_power} / ${max_power}" | bc)
 	bat_percent=$(echo "${bat_percent} * 100" | bc | sed 's/\.00//')
 
@@ -22,7 +22,8 @@ function out-batt {
 		Label="-"
 	fi
 
-	~/scripts/geektool/progbar.sh -l ${Label} -n Yellow -b ${BG} -u White -t 60 -o Red -w 20 ${bat_percent} 100 ${Width}
+	#~/scripts/geektool/progbar.sh -l ${Label} -n Yellow -b ${BG} -u White -t 60 -o Red -w 20 ${bat_percent} 100 ${Width}
+	${ScriptLoc}/progbar.sh -l ${Label} -n Yellow -b ${BG} -u White -t 60 -o Red -w 20 ${bat_percent} 100 ${Width}
 	printf "\n"
 }
 
@@ -57,25 +58,25 @@ function out-memory {
 		K ) memtotal=16000000
 		;;
 	esac
-	~/scripts/geektool/progbar.sh -l M -n Yellow -b ${BG} -u Red -t 95 -o White -w 85 $(echo "${memuse}" | sed s/[mMgGkK]//) ${memtotal} ${Width}
+	${ScriptLoc}/progbar.sh -l M -n Yellow -b ${BG} -u Red -t 95 -o White -w 85 $(echo "${memuse}" | sed s/[mMgGkK]//) ${memtotal} ${Width}
 	printf "\n"
 }
 
 function out-load {
 	#CPU total (via all processes' CPU via ps)
-	~/scripts/geektool/progbar.sh -l L -n Yellow -b ${BG} -u Red -t 85 -o White -w 50 $(printf %.0f $(ps axo %cpu | awk {'sum+=$1;print sum'} | tail -n 1)) 400 ${Width}
+	${ScriptLoc}/progbar.sh -l L -n Yellow -b ${BG} -u Red -t 85 -o White -w 50 $(printf %.0f $(ps axo %cpu | awk {'sum+=$1;print sum'} | tail -n 1)) 400 ${Width}
 	printf "\n"
 }
 
 function out-cpu {
 	#CPU overall utilization (via top)
-	~/scripts/geektool/progbar.sh -l C -n Yellow -b ${BG} -u Red -t 85 -o White -w 50 $(echo $(( 100 - $(top -l 2 | awk '/CPU usage/{i++} i==2{print; exit;}' | awk '{print $7}' | head -c2) ))) 100 ${Width}
+	${ScriptLoc}/progbar.sh -l C -n Yellow -b ${BG} -u Red -t 85 -o White -w 50 $(echo $(( 100 - $(top -l 2 | awk '/CPU usage/{i++} i==2{print; exit;}' | awk '{print $7}' | head -c2) ))) 100 ${Width}
 	printf "\n"
 }
 
 function out-disk {
 	#Disk util (via df)
-	~/scripts/geektool/progbar.sh -l D -n Yellow -b ${BG} -u Red -t 95 -o White -w 70 $(df -h "/" | awk 'NR==2{printf "%s", $5}' | sed s/\%//) 100 ${Width}
+	${ScriptLoc}/progbar.sh -l D -n Yellow -b ${BG} -u Red -t 95 -o White -w 70 $(df -h "/" | awk 'NR==2{printf "%s", $5}' | sed s/\%//) 100 ${Width}
 	printf "\n"
 }
 
@@ -104,6 +105,3 @@ while getopts ":lcmdbp" opt; do
 		;;
 	esac
 done
-
-
-#awk 'BEGIN{for(c=0;c<'$(( ${Width} + 5 ))';c++) printf "\033[40m "}'

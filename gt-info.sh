@@ -1,49 +1,18 @@
 #!/bin/bash
-####################
-## Set Color Vars ##
-####################
+ScriptLoc="$(dirname $0)/lib"
+source ${ScriptLoc}/lib_colors.sh
+source ${ScriptLoc}/lib_time.sh
 
-# Reset
-Color_Off='\e[0m'       # Text Reset
+function out-Heading {	
+	#Makes a pretty (and consistent) heading 
+	printf "${Heading}"
+	printf "${*}"
+	printf "%0.s " {1..100}
+	printf "${Color_Off}\n"
+}
 
-# Regular Colors
-Black='\e[0;30m'        # Black
-Red='\e[0;31m'          # Red
-Green='\e[0;32m'        # Green
-Yellow='\e[0;33m'       # Yellow
-Blue='\e[0;34m'         # Blue
-Purple='\e[0;35m'       # Purple
-Cyan='\e[0;36m'         # Cyan
-White='\e[0;37m'        # White
-
-# Bold
-BBlack='\e[1;30m'       # Black
-BRed='\e[1;31m'         # Red
-BGreen='\e[1;32m'       # Green
-BYellow='\e[1;33m'      # Yellow
-BBlue='\e[1;34m'        # Blue
-BPurple='\e[1;35m'      # Purple
-BCyan='\e[1;36m'        # Cyan
-BWhite='\e[1;37m'       # White
-
-# Background
-On_Black='\e[40m'       # Black
-On_Red='\e[41m'         # Red
-On_Green='\e[42m'       # Green
-On_Yellow='\e[43m'      # Yellow
-On_Blue='\e[44m'        # Blue
-On_Purple='\e[45m'      # Purple
-On_Cyan='\e[46m'        # Cyan
-On_White='\e[47m'       # White
-
-## Local Settings
-Heading=${Yellow}${On_Black}
-Text=${White}
-SubHead=${Yellow}
-Item=${BWhite}
-
-#ip address
 function get-net {
+#very convoluted (but fact-filled) network info
 local retval
 local ipaddr
 local masktemp
@@ -59,7 +28,7 @@ local WiFiDeets=""
 local ifconfig=""
 local ipconfig=""
 
-printf "${Heading}Network Information                                                                                                                      ${Color_Off}\n"
+out-Heading "Network Information"
 for INTs in $(ifconfig -l); do
 	if [ "${INTs:0:2}" = "en" ]; then
 		retval=""
@@ -86,11 +55,10 @@ for INTs in $(ifconfig -l); do
 		else
 			netcalc="n/a"
 		fi
-		defgateway=$(netstat -nr | grep ${INTs} | grep default | awk '{printf("%s,",$2)}' | sed 's/,\s*$//')
+		defgateway=$(netstat -nr | awk ' $1 == "default" { if ($6=="'${INTs}'") print $2 } ')
 
-		ConType=$(networksetup -listallhardwareports | grep -C1 ${INTs} | head -1 | awk ' { $1=$2=""; print }' | sed -e s/\ \ //g)
+		ConType=$(networksetup -listallhardwareports | grep -B1 ${INTs} | awk -F:  ' /Port/ { sub("Hardware Port: ",""); print }')
 		if [ "${ConType}" = "Wi-Fi" ]; then
-			#SSID=$(printf "`/System/Library/PrivateFrameworks/Apple80211.framework/Versions/A/Resources/airport -I | grep -i " ssid" | awk '{print $2, $3, $4, $5, $6}'`\n" | sed "s/\ //g")
 			SSID=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/A/Resources/airport -I | grep -i " ssid" | cut -d ":" -f 2 | sed "s/^\ //")
 			if ! [[ "${SSID}" && "${SSID-x}" ]]; then
 				SSID="n/a"
@@ -123,17 +91,19 @@ done
 }
 
 function get-disk {
-	printf "${Heading}Disk Information                                                                                                                      ${Color_Off}\n"
+	#the usual disk space info
+	out-Heading "Disk Information"
 	printf "${SubHead}"
-	echo "FileSystem Size Used Avail Used Mounted On" | awk '{printf "  %-20s %6s %6s %6s %6s  %s %s\n",  $1,$2,$4,$3,$5,$6,$7 }'
+	echo "FileSystem Size Used Avail Used Mounted On" | awk '{printf "  %-24s %6s  %6s %6s   %s %s\n",  $1,$2,$4,$5,$6,$7 }'
 	printf "${Text}"
-	df -H -T nfs,hfs | awk '{printf "  %-20s %6s %6s %6s %6s  %s\n",  $1,$2,$4,$3,$5,$9 }' | tail +2
+	df -H -T nfs,hfs | awk '{printf "  %-24s %6s  %6s %6s   %s\n",  $1,$2,$4,$5,$9 }' | tail +2
 	printf "${Color_Off}"
 	printf "\n"
 }
 
 function get-users {
-	printf "${Heading}Active User Summary                                                                                                                      ${Color_Off}\n"
+	#prints who's logged on to the machine, their tty, and when
+	out-Heading "Active User Summary"
 	printf "${SubHead}"
 	echo 'UserName Terminal Time Logged In' | awk '{printf "  %-16s   %-15s %s %s %s\n", $1, $2, $3, $4, $5;}'
 	printf "${Text}"
@@ -143,6 +113,7 @@ function get-users {
 }
 
 function get_uptime() {
+	#prints how long since the last boot
 	local retval=""
     local uptime
 
@@ -154,95 +125,27 @@ function get_uptime() {
 	printf "${Item}Up for:${Color_Off} \t${Text}${retval}${Color_Off}"
 }
 
-function LongOutTime {
-	## Argument 1: the seconds to convert
-	## Argument 2: the granularity: D - day; H - hour; M - minute; S - seconds [optional]
-	local timeused=${1%%.*}
-	local daysused=0
-	local hoursused=0
-	local minutesused=0
-	local secondsused=0
-
-	## Now to add a filter for how granular to be...
-	## Day Hour Minute Seconds... all proceed alphabetically
-	## So we can use their Ascii values to help filter!
-	## First, get if there's a display filter switch
-	##     (we'll use Z otherwise... it's above them all)
-	local switches=${2:-Z}
-	
-	## Now, let's make it capitalized for convenience
-	switches=$(echo ${switches:0:1} | tr '[:lower:]' '[:upper:]')
-
-	## And now, get the ascii value
-	## D=68; H=72; M=77; S=83; (and Z=90)
-	switches=$(printf '%d' "'$switches")
-
-	#break it up into human readable time
-	if [[ ${timeused} && ${timeused-x} ]]; then
-		if (( timeused > 86400 )); then
-			((
-				daysused=timeused/86400,
-				hoursused=timeused/3600-daysused*24,
-				minutesused=timeused/60-hoursused*60-daysused*60*24,
-				secondsused=timeused-minutesused*60-hoursused*3600-daysused*3600*24
-			))
-		elif (( timeused < 3600 )); then
-			((
-				minutesused=timeused/60,
-				secondsused=timeused-minutesused*60
-			))
-		elif (( timeused < 86400 )); then
-			((
-				hoursused=timeused/3600,
-				minutesused=timeused/60-hoursused*60,
-				secondsused=timeused-minutesused*60-hoursused*3600
-			))
-		fi
-
-		local sDay="days"
-		local sHour="hours"
-		local sMinute="minutes"
-		local sSecond="seconds"
-		
-		if [ ${daysused} -eq 1 ]; then sDay="day"; fi
-		if [ ${hoursused} -eq 1 ]; then sHour="hour"; fi
-		if [ ${minutesused} -eq 1 ]; then sMinute="minute"; fi
-		if [ ${secondsused} -eq 1 ]; then sSecond="second"; fi
-		
-		#color and display
-		if [ ${switches} -gt 67 ]; then retval=${retval}"${daysused} ${sDay}"; fi
-       	if [ ${switches} -gt 71 ]; then retval=${retval}"  ${hoursused} ${sHour}"; fi
-		if [ ${switches} -gt 76 ]; then retval=${retval}"  $(echo ${minutesused} | sed -e :a -e 's/^.\{1,1\}$/0&/;ta' ) ${sMinute}"; fi
-		if [ ${switches} -gt 82 ]; then retval=${retval}"  $(echo ${secondsused} | sed -e :a -e 's/^.\{1,1\}$/0&/;ta' ) ${sSecond}"; fi
-		printf "${retval}" 
-	fi
-}
-
 function get-screen {
+	#lists the displays and their resolution
 	local retval=""
-	#retval=$(system_profiler SPDisplaysDataType | grep "        [a-zA-Z]" | grep -vE "Serial|Mirror|Online|Rotation|Main|Retina\:|Built\-In|Depth|Type\:" | sed -e 's/^\ \ \ \ \ \ \ \ /\ \ \ /g' -e 's/\:\ /\:\\t/g' -e s/'([^)]*)'/''/g )
-	retval=$(system_profiler SPDisplaysDataType | grep -A 1000 " Displays\:" | grep -v "Display" | grep -B 1 -A 0 Resolution | grep -v "^--" | sed -e "s/^ *Resolution\://" -e "s/\ \ //g" | awk '{printf "  %s", $0; $0=""; getline; print "\t" $0}' | sed -e "s/^\ \ /\ \ $(printf "${Item}")/" -e "s/\:/\:$(printf "${Text}")/")
-	printf "${Heading}Available Screens                                                                                                                      ${Color_Off}\n"
+	local sDisplays="$(system_profiler SPDisplaysDataType | grep -A 1000 " Displays\:")"
+	retval=$( echo "${sDisplays}" | awk ' /^        [a-zA-Z]/ { gsub("  ",""); printf "  "red"%-17s"off, $0 }; /  Resolution:/ { gsub("  ",""); if ($5=="Retina") x="Retina"; else x=""; printf "%6s%s%s %s\n", $2,$3,$4,x}' | sed -e "s/^\ \ /\ \ $(printf "${Item}")/" -e "s/\:\ \ /\:\ \ $(printf "${Text}")/")
+
+	out-Heading "Available Screens"
 	printf "${Text}${retval}\n"
 	printf "\n"
 }
 
 function get-hardware {
+	#pulls some info on the hardware and software
 	local procval=""
-	local memval=""
 	procval=$(sysctl -n machdep.cpu.brand_string | sed 's/(R)//g; s/(TM)//g; s/\ CPU//g; s/Intel\ //g')
 	local sockets=$(sysctl -n hw.packages)
 	local cores=$(sysctl -n hw.physicalcpu)
 	local threads=$(sysctl -n hw.logicalcpu)
-	memval=$(sysctl -n hw.memsize | awk '{print $0/1073741824" GB"}';)
-	printf "${Heading}System Information                                                                                                                  ${Color_Off}\n"
+	out-Heading "System Information"
 	printf "   ${Item}CPU:${Color_Off}\t\t${Text}${procval}"
 	printf " (${sockets} sockets; ${cores} cores: ${threads} logical)${Color_Off}\n"
-	#printf "   ${Item}Memory:${Color_Off}\t${Text}${memval}${Color_Off}\n\n"
-	get-booted
-}
-
-function get-booted {
 	printf "   ${Item}OS Ver:${Color_Off}\t${Text}$(sw_vers | grep -v "^Build" | awk -F':\t' '{print $2}' | paste -d " " - - -)${Color_Off}\n"
 	printf "   ${Item}Kernel:${Color_Off}\t${Text}$(sysctl -n kern.version | cut -d \; -f 1 | sed 's/\ Kernel/,/g')${Color_Off}\n"
 	printf "   ${Item}Booted:${Color_Off}\t${Text}$(date -r $(sysctl -n kern.boottime | awk '{print $4}' | sed 's/,//g') +'%a %m/%d/%Y at %I:%M%p')${Color_Off}\n"
@@ -251,69 +154,44 @@ function get-booted {
 }
 
 function get-panics {
+	#If there've been any kernel panics reported in the system log, this will find 'em
 	local retval=""
 	retval=$(system_profiler SPLogsDataType | grep -A7 "Panic (system" | grep -vE "Source|Size|Modified|Contents|Panic|--" | tr -s "\n" | sed -e 's/^/\ \ /g' | tail -3 )
 	if [[ ${retval} && ${retval-x} ]]; then
-		printf "${Heading}Recent Kernel Panics                                                                                                          ${Color_Off}\n"
+		out-Heading "Recent Kernel Panics"
 		printf "${Text}${retval}${Color_Off}\n"
 		printf "\n"
 	fi
 }
 
-function get-ps {
-	local retval=""
-	printf "${Heading}Process Utilization                                                                                                                         ${Color_Off}\n"
-	echo "$(ps -amcxo "rss=Usage %mem=Mem command=App" | grep -v "com.apple" | head -5 | awk '{print $3, $1/1024 "mb", $2 "%"}' | sed 's/\(\.[0-9][0-9]\)[0-9]*/\1/g' | column -t && printf " ") $(ps -arcxo "command=App %cpu=CPU" | head -5)" | sed -e "s/^\ \ App/App/g" -e "s/\ \ 0mb\ \ /\ \ Usage/g" -e "s/Mem\%/\ Mem/g" | pr -2 -t | awk '{ printf "  %-16s %9s %5s  \|  %-16s %5s\n", $1, $2, $3, $4, $5 ; }' | sed -e "s/^\ \ App/\ \ $(printf "${SubHead}")App/g" -e "s/CPU/CPU$(printf "${Text}")/g"
-}
-
 function date-info {
 	local retval=""
-	retval=$(calendar -W 0 | sed -E "s/$(date -j '+%b %_d')../* /" | fold -s -w 73 | sed -e "s/^\([^*]\)/\ \ \ \ \ \ \ &/" -e "s/*/\ \ $(printf "${Item}")*$(printf "${Text}")/")
-	printf "${Heading}On this day in history...                                                                                                                         ${Color_Off}${Text}\n"
-	echo "${retval}"
-	printf "\n"
-}
-
-function day-info {
-	local retval=""
-	local weatherdata=""
-	local loc="http://www.wunderground.com/cgi-bin/findweather/getForecast?query=pws:MRWCC1"
-
-	weatherdata=$(curl -s ${loc} | textutil -convert txt -stdin -stdout -format html | grep -E "Rise|Length of Day" -A4)
-
-	if [[ ${weatherdata} && ${weatherdata-x} ]]; then
-		local sunrise=$(echo "${weatherdata}" | grep "Rise" -A 3 | tail -1 | sed -e "s/\ PDT//" | tr '[:upper:]' '[:lower:]')
-		local sunset=$(echo "${weatherdata}" | grep "Rise" -A 4 | tail -1 | sed "s/\ PDT//" | tr '[:upper:]' '[:lower:]')
-		local daylength=$(echo $(echo "${weatherdata}" | grep "Length" -A 1 | tail -1)) ## | sed -e "s/\.\ \-//"))
-		local moonphase=$(echo "${weatherdata}" | grep "the Moon" | sed "s/\%/\%\%/g")
-		printf "${Heading}Sun and Moon Info                                                                                                                  ${Color_Off}\n"
-		printf "  ${Item}SunRise:${Text} ${sunrise}\t  ${Item}SunSet:${Text} ${sunset}${Color_Off}\t"
-		printf "  ${Item}Length:${Text} ${daylength}${Color_Off}\n"
-		printf "  ${Item}Moon Phase:${Text} ${moonphase}${Color_Off}\n"
+	
+	#This section expects the calendar files to exist
+	#in the user's home directory under .calendar
+	#see man calendar for more information...
+	if [ -r ~/.calendar/calendar ]; then
+		retval=$(calendar -W 0 | sed -E "s/$(date -j '+%b %_d')../* /" | fold -s -w 73 | sed -e "s/^\([^*]\)/\ \ \ \ \ \ \ &/" -e "s/*/\ \ $(printf "${Item}")*$(printf "${Text}")/")
+		out-Heading "On this day in history..."
+		echo "${retval}"
 		printf "\n"
 	fi
 }
 
-function date2secs { 
-	date -j -f "%m/%d/%Y-%H-%M" "$1" +%s
-}
-
-function dateDiff {
-    dte1=$1
-    dte2=$2
-    diffSec=$((dte2-dte1))
-    if ((diffSec < 0)); then abs=-1; else abs=1; fi
-    echo $((diffSec*abs))
-}
-
 function OutBDay {
+	#Syntax: OutBDay Target Title [InclTotals]
+	#   where
+	#		Target = the date to count to (in MM/DD/YY-Hr-Mn format)
+	#		Title = text to print before the count
+	#		InclTotals = 0 or nothing incl total year count; 1 don't incl total year count
+		
 	local retval=""
 	local HowOldAmI=""
 	local BeforeBDay=0
 	
 	local bdate="${1}"
-	local InclTotal=${2:-0}
-	local Granul=${3:-m}
+	local InclTotal=${3:-0}
+	local sTitle="${2}"
 
 	local bmonth=${bdate:0:2}
 	local bday=${bdate:3:2}
@@ -333,9 +211,10 @@ function OutBDay {
  		BeforeBDay=1
 	fi
 
+	#output
 	local NextBDay="${bmonth}/${bday}/$(date -j -v +${BeforeBDay}y +%Y)-00-00"
 	
-	#printf "$(LongOutTime $(dateDiff $(date2secs ${cdate}) $(date2secs ${NextBDay})) m)" | awk '{ printf "%3s %-4s  %2s %-5s  %2s %-7s", $1, $2, $3, $4, $5, $6; }'
+	printf "  ${Item}$(echo "${sTitle}:" | awk ' {printf "%-18s", $0}')${Text}"
 	printf "$(LongOutTime $(dateDiff $(date2secs ${cdate}) $(date2secs ${NextBDay})) m)" | awk '{ printf " %6s  %4s   %4s", $1, $3, $5; }'
 
 	printf "   ${NextBDay:0:10}"
@@ -343,16 +222,43 @@ function OutBDay {
 }
 
 function HowLongUntil {
-	printf "${Heading}How Long Until...                                                                     ${Color_Off}\n"
+	#A simple function ... that calls other, less simple functions.
+	#Print out how many days until something
+	#Looks for a dates.txt file in a data subfolder under the script folder
+	#	format:		item,date,includeAge
+	#	example:	my birthday,01/02/03-00-00
+	#				stepped on nail,04/05/06-09-15
+	#		(where item and date are mandatory, and includeAge is optional)
+	#Otherwise, you can specify items in the script
+	out-Heading "How Long Until..."
 
+	#here's the heading
 	printf "${SubHead}"
 	echo " ~Days~Hrs~Mins~Next Date~Years" | awk 'BEGIN{FS="~"}{ printf "%-21s %5s %5s %6s   %-10s  %5s", $1, $2, $3, $4, $5, $6; }'
 	printf "\n"
 
-	printf "  ${Item}My Birthday:${Text}\t\t"
-	OutBDay "07/03/1921-00-00"
+	#here's where we parse the file
+	local Where="$(dirname $0)/data"
+	if [ -r "${Where}/dates.txt" ]; then
+		while IFS=, read -r f1 f2 f3; do
+			OutBDay "${f2}" "${f1}" "${f3}"
+			printf "\n"
+		done < "${Where}/dates.txt"
+
+	fi
+
+	#and here're the manual items
+	OutBDay "11/27/2014-00-00" "Thanksgiving" 1
 	printf "\n"
+	OutBDay "12/25/2014-00-00" "Christmas" 1
 	printf "\n"
+	OutBDay "01/01/2015-00-00" "New Years" 1
+	printf "\n"
+}
+
+function Working {
+	## just a temporary working function where I can test stuff
+	echo "noop"
 }
 
 ## Sets up for selecting which section at the command line
@@ -370,7 +276,6 @@ if [ ${What} -eq 3 ] || [ ${What} -gt 90 ]; then get-disk; fi
 if [ ${What} -eq 4 ] || [ ${What} -gt 90 ]; then get-screen; fi
 if [ ${What} -eq 5 ] || [ ${What} -gt 90 ]; then get-panics; fi
 if [ ${What} -eq 6 ] || [ ${What} -gt 90 ]; then get-users; fi
-if [ ${What} -eq 7 ] || [ ${What} -gt 99 ]; then get-ps; fi
-if [ ${What} -eq 8 ] || [ ${What} -gt 90 ]; then day-info; fi
-if [ ${What} -eq 9 ] || [ ${What} -gt 90 ]; then date-info; fi
-if [ ${What} -eq 10 ] || [ ${What} -gt 90 ]; then HowLongUntil; fi
+if [ ${What} -eq 7 ] || [ ${What} -gt 90 ]; then date-info; fi
+if [ ${What} -eq 8 ] || [ ${What} -gt 90 ]; then HowLongUntil; fi
+if [ ${What} -eq 75 ]; then Working; fi 
