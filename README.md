@@ -3,35 +3,51 @@ GeekToolScripts
 
 A collection of scripts for GeekTool on the mac.
 
-* gt-calendar.sh
+* <b>gt-calendar.sh</b><br>
 Displays a 3 month calendar, current month in the center, with the current day highlighted. 
 The past and previous months are a different color from current, with the expired days of 
 this month a different color too. Very colorful. 
 
-* gt-info.sh
-Huge info script. Shows:
-  CPU, OS and Kernel version, last boot time and uptime
-  Network Info for all active NICs: 
+* <b>gt-info.sh</b><br>
+Huge info script. By default shows all info (command line switch listed in parens): <br>
+  CPU, OS and Kernel version, last boot time and uptime (./gt-info.sh 1)<br>
+  Network Info for all active NICs (./gt-info.sh 2): <br>
     IP, Mac, DHCP server, lease expiration, gateway, dns, and wifi ssid and tech
-  Disk Info - size, space avail and used, %, and mount point
-  Monitors and resolution
-  Recent kernel panics
-  Current users, which TTY, and when logged in
-  Sun rise and set, moon phase
-  This day in history (expects ~/.calendar files)
-  How Long Until... various days
+  Disk Info - size, space avail and used, %, and mount point (./gt-info.sh 3)<br>
+  Monitors and resolution (./gt-info.sh 4)<br>
+  Recent kernel panics (./gt-info.sh 5)<br>
+  Current users, which TTY, and when logged in (./gt-info.sh 6)<br>
+  This day in history (expects ~/.calendar files) (./gt-info.sh 7)<br>
+  How Long Until... various days (expects ./data/dates.txt) (./gt-info.sh 8)<br>
   
-* gt-weather.sh
+* <b>gt-weather.sh</b><br>
 Obligatory weather information. Includes temp, forecast, the usual....
 
-* gt-quote.sh
+* <b>gt-quote.sh</b><br>
 Obligatory quote script
 
-* gt-time.sh
+* <b>gt-time.sh</b><br>
 Simple display of time in a couple zones...
 
-* progbar.sh
-Simple multi-color progress bar (now, not so simple...)
+* <b>gt-meters.sh</b><br>
+Uses progbar.sh to output load, cpu, memory, and disk utilization. Also battery.
+ALSO, out prints out top processes by cpu and by memory util, in 2 cols.
+Includes command line switches to select what displays and in what order.... 
+Bars are colored based on various percentages...
+```
+		-l	load bar <br>
+		-c	cpu util bar <br>
+		-m	mem util bar <br>
+		-d	disk util bar <br>
+		-b	batt util bar <br>
+		-p	processes <br>
+```
+
+Lib Scripts
+These are found in the ./lib/ folder - they are required for some (or all) of the above scripts
+* <b>progbar.sh</b><br>
+Not-so-simple multi-color progress bar (now, not so simple...)
+```
 	progbar.sh [options] amount [total] [width] 
         -r	Reverse the bar's order
         -l	Label
@@ -43,15 +59,9 @@ Simple multi-color progress bar (now, not so simple...)
         -o	Low indicator color
         -w	Low threshold (percent)
 		Color Options: Black, Red, Yellow, Blue, Green, Purple, Cyan, White, Off
+```
+* <b>lib_colors.sh</b><br>
+  GT-safe colors referenced in the scripts
 
-* gt-meters.sh
-Uses progbar.sh to output load, cpu, memory, and disk utilization. Also battery.
-ALSO, out prints out top processes by cpu and by memory util, in 2 cols.
-Includes command line switches to select what displays and in what order....
-		-l	load bar
-		-c	cpu util bar
-		-m	mem util bar
-		-d	disk util bar
-		-b	batt util bar
-		-p	processes
-	Bars are colored based on various %ages
+* <b>lib_time.sh</b><br>
+  Some small time conversion scripts (mostly to get the "x days y hours" format)
