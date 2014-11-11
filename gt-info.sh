@@ -96,7 +96,7 @@ function get-disk {
 	printf "${SubHead}"
 	echo "FileSystem Size Used Avail Used Mounted On" | awk '{printf "  %-24s %6s  %6s %6s   %s %s\n",  $1,$2,$4,$5,$6,$7 }'
 	printf "${Text}"
-	df -H -T nfs,hfs | awk '{printf "  %-24s %6s  %6s %6s   %s\n",  $1,$2,$4,$5,$9 }' | tail +2
+	df -H -T nfs,hfs | awk '! /Filesystem/ {printf "  %-24s %6s  %6s %6s   %s\n",  $1,$2,$4,$5,$9 }'
 	printf "${Color_Off}"
 	printf "\n"
 }
@@ -105,9 +105,9 @@ function get-users {
 	#prints who's logged on to the machine, their tty, and when
 	out-Heading "Active User Summary"
 	printf "${SubHead}"
-	echo 'UserName Terminal Time Logged In' | awk '{printf "  %-16s   %-15s %s %s %s\n", $1, $2, $3, $4, $5;}'
+	echo 'UserName Terminal Time Logged In' | awk '{ printf "  %-16s %-15s ", $1, $2 ; $1=$2=""; printf "%s\n", $0 }' 
 	printf "${Text}"
-	who | awk '{ printf "    %-16s %-15s %s %s %s\n", $1, $2, $3, $4, $5 ; }'
+	who | awk '{ printf "  %-16s %-15s ", $1, $2 ; $1=$2=""; printf "%s\n", $0 }'
 	printf "${Color_Off}"
 	printf "\n"
 }
@@ -117,7 +117,7 @@ function get_uptime() {
 	local retval=""
     local uptime
 
-	local boottime=$(sysctl -n kern.boottime | awk '{print $4}' | sed 's/,//g')
+	local boottime=$(sysctl -n kern.boottime | awk 'BEGIN { FS=" \|,"}; {print $4}')
 	local unixtime=$(date +%s)
 	uptime=$((${unixtime} - ${boottime}))
 
@@ -146,9 +146,9 @@ function get-hardware {
 	out-Heading "System Information"
 	printf "   ${Item}CPU:${Color_Off}\t\t${Text}${procval}"
 	printf " (${sockets} sockets; ${cores} cores: ${threads} logical)${Color_Off}\n"
-	printf "   ${Item}OS Ver:${Color_Off}\t${Text}$(sw_vers | grep -v "^Build" | awk -F':\t' '{print $2}' | paste -d " " - - -)${Color_Off}\n"
-	printf "   ${Item}Kernel:${Color_Off}\t${Text}$(sysctl -n kern.version | cut -d \; -f 1 | sed 's/\ Kernel/,/g')${Color_Off}\n"
-	printf "   ${Item}Booted:${Color_Off}\t${Text}$(date -r $(sysctl -n kern.boottime | awk '{print $4}' | sed 's/,//g') +'%a %m/%d/%Y at %I:%M%p')${Color_Off}\n"
+	printf "   ${Item}OS Ver:${Color_Off}\t${Text}$(sw_vers | awk ' /ProductName/ { $1=""; sub("^ ",""); printf $0; getline; printf " " $2 }')${Color_Off}\n"
+	printf "   ${Item}Kernel:${Color_Off}\t${Text}$(sysctl -n kern.version | awk ' BEGIN { FS=";" }; { sub("Kernel ",""); printf $1 }')${Color_Off}\n"
+	printf "   ${Item}Booted:${Color_Off}\t${Text}$(date -r $(sysctl -n kern.boottime | awk 'BEGIN { FS=" \|,"}; {print $4}') +'%a %m/%d/%Y at %I:%M%p')${Color_Off}\n"
 	printf "   $(get_uptime)\n"
 	printf "\n"
 }
@@ -170,7 +170,7 @@ function date-info {
 	#This section expects the calendar files to exist
 	#in the user's home directory under .calendar
 	#see man calendar for more information...
-	if [ -r ~/.calendar/calendar ]; then
+	if [ -r "${HOME}/.calendar/calendar" ]; then
 		retval=$(calendar -W 0 | sed -E "s/$(date -j '+%b %_d')../* /" | fold -s -w 73 | sed -e "s/^\([^*]\)/\ \ \ \ \ \ \ &/" -e "s/*/\ \ $(printf "${Item}")*$(printf "${Text}")/")
 		out-Heading "On this day in history..."
 		echo "${retval}"
