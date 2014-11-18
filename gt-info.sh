@@ -46,42 +46,58 @@ for INTs in $(ifconfig -l); do
 		ifconfig=""
 		ipconfig=""
 		
-		ifconfig=$(ifconfig ${INTs})
+		ifconfig="$(ifconfig ${INTs})"
 		ipaddr=$(echo "${ifconfig}" | awk '/inet[[:space:]]/ {print $2 }')
+
 		masktemp=$(echo "${ifconfig}" | awk '/inet[[:space:]]/ {print $4 }')
-		
 		if [ ${#masktemp} -eq 10 ]; then
 			netcalc="$((0x${masktemp:2:2} / 0x1)).$((0x${masktemp:4:2} / 0x1)).$((0x${masktemp:6:2} / 0x1)).$((0x${masktemp:8:2} / 0x1))"
 		else
 			netcalc="n/a"
 		fi
-		defgateway=$(netstat -nr | awk ' $1 == "default" { if ($6=="'${INTs}'") print $2 } ')
 
+		MACAddr=$(echo "${ifconfig}" | awk '/ether[[:space:]]/ {print $2 }')
+		
+		defgateway=$(netstat -nr | awk ' $1 == "default" { if ($6=="'${INTs}'") print $2 } ')
+		
 		ConType=$(networksetup -listallhardwareports | grep -B1 ${INTs} | awk -F:  ' /Port/ { sub("Hardware Port: ",""); print }')
 		if [ "${ConType}" = "Wi-Fi" ]; then
-			SSID=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/A/Resources/airport -I | grep -i " ssid" | cut -d ":" -f 2 | sed "s/^\ //")
+			SSID=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/A/Resources/airport -I | awk ' / SSID:/ { print $2 }')
 			if ! [[ "${SSID}" && "${SSID-x}" ]]; then
 				SSID="n/a"
 			else
-				WiFiDeets="$(system_profiler SPAirPortDataType | grep -A10 "Current Network Information" | grep "PHY" | cut -d ':' -f 2 | sed "s/^\ //")"
+				#System_Profiler is ... slow (it's an inventory)
+				#Disabling this 'else' call will speed things up a little
+				#(and it won't break the display of info below)
+				WiFiDeets=" - $(system_profiler SPAirPortDataType | grep -A10 "Current Network Information" | awk ' /PHY Mode:/ { print $3 }')"
 			fi
 		fi
 		
 		ipconfig=$(ipconfig getpacket ${INTs})		
-		DHCPServer=$(echo "${ipconfig}" | grep -E "server_identifier|siaddr" | grep -v 0.0.0.0 | tail -1 | cut -d ':' -f 2 | sed -e 's/^\ //g')
-		if [[ "${DHCPServer}" && "${DHCPServer-x}" ]]; then
-			DHCPLeaseExpires=$(date -r $(echo $(date +%s) + $(( $(echo "${ipconfig}" | awk '/rebinding_t2_time_value[[:space:]]/ { $1=$2=""; print }') / 0x1 )) | bc) +'%a %m/%d/%Y %_I:%M%p')
+		#DHCPServer=$(echo "${ipconfig}" | awk ' BEGIN { FS="[=:]" }; /server_identifier|siaddr/ {$1=""; gsub(" ","",$0); if (!($0=="0.0.0.0")) print $0; exit}')
+		DHCPServer=$(echo "${ipconfig}" | awk ' BEGIN { FS="[=:]" }; /server_identifier/ {$1=""; gsub(" ","",$0); print $0 }')
+		if ! [[ "${DHCPServer}" && "${DHCPServer-x}" ]]; then
+			DHCPServer="Static IP or no DHCPServer"
+# 		else
+# 			#Have to review DHCP lease time
+# 			#ipconfig doesn't actually show when the lease was granted (so this calc is wrong)
+# 			#btw - /private/var/db/dhcpclient/leases/ holds 
+# 			#plus t1 = when it will try to renew with existing dhcpserver
+# 			#and  t2 = when it will try to renew with any dhcpserver
+# 			DHCPLeaseExpires=$(date -r $(echo $(date +%s) + $(( $(echo "${ipconfig}" | awk '/rebinding_t2_time_value[[:space:]]/ { $1=$2=""; print }') / 0x1 )) | bc) +'%a %m/%d/%Y %_I:%M%p')
+# 			DHCPLeaseExpires="(${Item}Lease Expires:${Text} ${DHCPLeaseExpires})${ColorOff}"
 		fi
-		DNSServer=$(echo "${ipconfig}" | awk '/domain_name_server[[:space:]]/ { $1=$2=""; print }' | sed -e s/\ \ //g | sed -e s/[\{\}]//g)
+		DNSServer=$(echo "${ipconfig}" | awk 'BEGIN { FS="[{}]"}; /domain_name_server[[:space:]]/ { print $2 }')
 		
 		if [[ "${ipaddr}" && "${ipaddr-x}" ]]; then
 			printf " ${SubHead}${ConType} - interface ${INTs}${Color_Off}\n"
 			printf "   ${Item}IP Address:${Color_Off}\t${Text}${ipaddr} / ${netcalc}${Color_Off}\n"
-			printf "   ${Item}DHCP Server:${Color_Off}\t${Text}${DHCPServer} (${Item}Lease Expires:${Text} ${DHCPLeaseExpires})${ColorOff}\n"
+			printf "   ${Item}MAC Address:${Color_Off}\t${Text}${MACAddr}${Color_Off}\n"
+			printf "   ${Item}DHCP Server:${Color_Off}\t${Text}${DHCPServer}${ColorOff} ${DHCPLeaseExpires}${ColorOff}\n"
 			printf "   ${Item}Def Gateway:${Color_Off}\t${Text}${defgateway}${Color_Off}\n"
 			printf "   ${Item}DNS Servers:${Color_Off}\t${Text}${DNSServer}${Color_Off}\n"
 			if [ "${ConType}" = "Wi-Fi" ]; then
-				printf "   ${Item}WiFi SSID:${Color_Off}\t${Text}${SSID} - ${WiFiDeets}${Color_Off}\n"
+				printf "   ${Item}WiFi SSID:${Color_Off}\t${Text}${SSID}${WiFiDeets}${Color_Off}\n"
 			fi
 			printf "\n"
 		fi
@@ -105,31 +121,17 @@ function get-users {
 	#prints who's logged on to the machine, their tty, and when
 	out-Heading "Active User Summary"
 	printf "${SubHead}"
-	echo 'UserName Terminal Time Logged In' | awk '{ printf "  %-16s %-15s ", $1, $2 ; $1=$2=""; printf "%s\n", $0 }' 
+	echo 'UserName~Terminal~Logged In' | awk ' BEGIN {FS="~"}; { printf "  %-16s %-15s %s\n", $1,$2,$3 }' 
 	printf "${Text}"
-	who | awk '{ printf "  %-16s %-15s ", $1, $2 ; $1=$2=""; printf "%s\n", $0 }'
+	who | awk '{ printf "  %-16s %-15s %-3s %2s %-5s\n", $1, $2, $3, $4, $5 }'
 	printf "${Color_Off}"
 	printf "\n"
-}
-
-function get_uptime() {
-	#prints how long since the last boot
-	local retval=""
-    local uptime
-
-	local boottime=$(sysctl -n kern.boottime | awk 'BEGIN { FS=" \|,"}; {print $4}')
-	local unixtime=$(date +%s)
-	uptime=$((${unixtime} - ${boottime}))
-
-	retval="$(LongOutTime ${uptime} m)"
-	printf "${Item}Up for:${Color_Off} \t${Text}${retval}${Color_Off}"
 }
 
 function get-screen {
 	#lists the displays and their resolution
 	local retval=""
-	local sDisplays="$(system_profiler SPDisplaysDataType | grep -A 1000 " Displays\:")"
-	retval=$( echo "${sDisplays}" | awk ' /^        [a-zA-Z]/ { gsub("  ",""); printf "  "red"%-17s"off, $0 }; /  Resolution:/ { gsub("  ",""); if ($5=="Retina") x="Retina"; else x=""; printf "%6s%s%s %s\n", $2,$3,$4,x}' | sed -e "s/^\ \ /\ \ $(printf "${Item}")/" -e "s/\:\ \ /\:\ \ $(printf "${Text}")/")
+	retval=$( system_profiler SPDisplaysDataType | awk ' /^        [a-zA-Z]/ { gsub("  ",""); printf "  '${Item}'%-17s'${Color_Off}'", $0 }; /  Resolution:/ { gsub("  ",""); if ($5=="Retina") x="Retina"; else x=""; printf "'${Text}'%6s%s%s %s'${Color_Off}'\n", $2,$3,$4,x}' )
 
 	out-Heading "Available Screens"
 	printf "${Text}${retval}\n"
@@ -143,13 +145,29 @@ function get-hardware {
 	local sockets=$(sysctl -n hw.packages)
 	local cores=$(sysctl -n hw.physicalcpu)
 	local threads=$(sysctl -n hw.logicalcpu)
+	local osver=$(sw_vers | awk ' /ProductName/ { $1=""; sub("^ ",""); printf $0; getline; printf " " $2 }')
+	#local kernver=$(sysctl -n kern.version | awk ' BEGIN { FS=";" }; { sub("Kernel ",""); printf $1 }')
+	local kernver=$(sysctl -n kern.version | awk ' func formatdate(dWhen) { SQ="\047"; cmd="date -j -f " SQ "%a %b %d %H:%M:%S %Z %Y" SQ " " SQ "+%m/%d/%Y" SQ " " SQ dWhen SQ; cmd|getline retval; close(cmd); return retval } BEGIN { FS=": \|;" }; { sub("Version ",""); printf $1 " (" formatdate($2) ")" }')
+	
+	#Boot and reboot times
+	local boottime=$(sysctl -n kern.boottime | awk 'BEGIN { FS="[ ,]"}; {print $4}')
+	local unixtime=$(date +%s)
+	local uptime=$((${unixtime} - ${boottime}))
+	uptime="$(LongOutTime ${uptime} m)"
+	local WhenBooted=$(date -r ${boottime} +'%a  %m/%d/%Y  at  %_I:%M%p')
+	##Note: this is a tricky bit of date formatting
+	##I use SQ as a single quote since otherwise, it's even more tricky
+	##last doesn't include the year, so neither do I.
+	local lastfewboots=$(last | awk ' func formatdate(dM, dD, dH) {SQ="\047"; cmd="date -j -f " SQ "%b %d %H:%M" SQ " " SQ "+%m/%d       at  %_I:%M%p" SQ " " SQ dM " " dD " " dH SQ ; cmd|getline retval; close(cmd); return retval } BEGIN { x=0 } /reboot|shutdown/ { if (x>0) printf "\t\t\t%3s  %-21s  (%5s)\n", $3,formatdate($4,$5,$6),$1 ; if (x==4) exit; else x+=1 }')
+
 	out-Heading "System Information"
 	printf "   ${Item}CPU:${Color_Off}\t\t${Text}${procval}"
 	printf " (${sockets} sockets; ${cores} cores: ${threads} logical)${Color_Off}\n"
-	printf "   ${Item}OS Ver:${Color_Off}\t${Text}$(sw_vers | awk ' /ProductName/ { $1=""; sub("^ ",""); printf $0; getline; printf " " $2 }')${Color_Off}\n"
-	printf "   ${Item}Kernel:${Color_Off}\t${Text}$(sysctl -n kern.version | awk ' BEGIN { FS=";" }; { sub("Kernel ",""); printf $1 }')${Color_Off}\n"
-	printf "   ${Item}Booted:${Color_Off}\t${Text}$(date -r $(sysctl -n kern.boottime | awk 'BEGIN { FS=" \|,"}; {print $4}') +'%a %m/%d/%Y at %I:%M%p')${Color_Off}\n"
-	printf "   $(get_uptime)\n"
+	printf "   ${Item}OS Ver:${Color_Off}\t${Text}${osver} / ${kernver}${Color_Off}\n"
+#	printf "   ${Item}Kernel:${Color_Off}\t${Text}${kernver}${Color_Off}\n"
+	printf "   ${Item}Up for:${Color_Off} \t${Text}${uptime}${Color_Off}\n"
+	printf "   ${Item}Booted:${Color_Off}\t${Text}${WhenBooted}  (current boot)${Color_Off}\n"
+	printf "${Color_Off}${Text}${lastfewboots}${Color_Off}\n"
 	printf "\n"
 }
 
@@ -171,7 +189,8 @@ function date-info {
 	#in the user's home directory under .calendar
 	#see man calendar for more information...
 	if [ -r "${HOME}/.calendar/calendar" ]; then
-		retval=$(calendar -W 0 | sed -E "s/$(date -j '+%b %_d')../* /" | fold -s -w 73 | sed -e "s/^\([^*]\)/\ \ \ \ \ \ \ &/" -e "s/*/\ \ $(printf "${Item}")*$(printf "${Text}")/")
+		#retval=$(calendar -W 0 | sed -E "s/$(date -j '+%b %_d')../* /" | fold -s -w 73 | sed -e "s/^\([^*]\)/\ \ \ \ \ \ \ &/" -e "s/*/\ \ $(printf "${Item}")*$(printf "${Text}")/")
+		retval=$(calendar -W 0 | sed -E "s/$(date -j '+%b %_d')../~ /" | fold -s -w 73 | awk ' $1!="~" { printf "    %s'${Color_Off}'\n", $0 } $1=="~" { $1=""; printf "'${Item}'*'${Text}'%s\n", $0 };')
 		out-Heading "On this day in history..."
 		echo "${retval}"
 		printf "\n"
