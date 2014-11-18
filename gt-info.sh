@@ -146,7 +146,8 @@ function get-hardware {
 	local cores=$(sysctl -n hw.physicalcpu)
 	local threads=$(sysctl -n hw.logicalcpu)
 	local osver=$(sw_vers | awk ' /ProductName/ { $1=""; sub("^ ",""); printf $0; getline; printf " " $2 }')
-	#local kernver=$(sysctl -n kern.version | awk ' BEGIN { FS=";" }; { sub("Kernel ",""); printf $1 }')
+
+	#Fun with awl dates (see a few lines down...)
 	local kernver=$(sysctl -n kern.version | awk ' func formatdate(dWhen) { SQ="\047"; cmd="date -j -f " SQ "%a %b %d %H:%M:%S %Z %Y" SQ " " SQ "+%m/%d/%Y" SQ " " SQ dWhen SQ; cmd|getline retval; close(cmd); return retval } BEGIN { FS=": \|;" }; { sub("Version ",""); printf $1 " (" formatdate($2) ")" }')
 	
 	#Boot and reboot times
@@ -155,7 +156,7 @@ function get-hardware {
 	local uptime=$((${unixtime} - ${boottime}))
 	uptime="$(LongOutTime ${uptime} m)"
 	local WhenBooted=$(date -r ${boottime} +'%a  %m/%d/%Y  at  %_I:%M%p')
-	##Note: this is a tricky bit of date formatting
+	##Note: this is a tricky bit of date formatting (awk on mac doesn't have the built-in date functions)
 	##I use SQ as a single quote since otherwise, it's even more tricky
 	##last doesn't include the year, so neither do I.
 	local lastfewboots=$(last | awk ' func formatdate(dM, dD, dH) {SQ="\047"; cmd="date -j -f " SQ "%b %d %H:%M" SQ " " SQ "+%m/%d       at  %_I:%M%p" SQ " " SQ dM " " dD " " dH SQ ; cmd|getline retval; close(cmd); return retval } BEGIN { x=0 } /reboot|shutdown/ { if (x>0) printf "\t\t\t%3s  %-21s  (%5s)\n", $3,formatdate($4,$5,$6),$1 ; if (x==4) exit; else x+=1 }')
@@ -164,7 +165,6 @@ function get-hardware {
 	printf "   ${Item}CPU:${Color_Off}\t\t${Text}${procval}"
 	printf " (${sockets} sockets; ${cores} cores: ${threads} logical)${Color_Off}\n"
 	printf "   ${Item}OS Ver:${Color_Off}\t${Text}${osver} / ${kernver}${Color_Off}\n"
-#	printf "   ${Item}Kernel:${Color_Off}\t${Text}${kernver}${Color_Off}\n"
 	printf "   ${Item}Up for:${Color_Off} \t${Text}${uptime}${Color_Off}\n"
 	printf "   ${Item}Booted:${Color_Off}\t${Text}${WhenBooted}  (current boot)${Color_Off}\n"
 	printf "${Color_Off}${Text}${lastfewboots}${Color_Off}\n"
@@ -189,7 +189,6 @@ function date-info {
 	#in the user's home directory under .calendar
 	#see man calendar for more information...
 	if [ -r "${HOME}/.calendar/calendar" ]; then
-		#retval=$(calendar -W 0 | sed -E "s/$(date -j '+%b %_d')../* /" | fold -s -w 73 | sed -e "s/^\([^*]\)/\ \ \ \ \ \ \ &/" -e "s/*/\ \ $(printf "${Item}")*$(printf "${Text}")/")
 		retval=$(calendar -W 0 | sed -E "s/$(date -j '+%b %_d')../~ /" | fold -s -w 73 | awk ' $1!="~" { printf "    %s'${Color_Off}'\n", $0 } $1=="~" { $1=""; printf "'${Item}'*'${Text}'%s\n", $0 };')
 		out-Heading "On this day in history..."
 		echo "${retval}"
@@ -248,7 +247,7 @@ function HowLongUntil {
 	#	example:	my birthday,01/02/03-00-00
 	#				stepped on nail,04/05/06-09-15
 	#		(where item and date are mandatory, and includeAge is optional)
-	#Otherwise, you can specify items in the script
+	#Otherwise, you can specify items here in the script (see below)
 	out-Heading "How Long Until..."
 
 	#here's the heading
