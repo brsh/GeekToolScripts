@@ -1,7 +1,7 @@
 GeekToolScripts
 ===============
 
-A collection of scripts for GeekTool on the mac.
+A collection of scripts for GeekTool on the mac. Note: I use geektool to set the "default" color and only enhance some colors via ANSI codes. The calendar is a prime example of this
 
 * <b>gt-calendar.sh</b><br>
 Displays a 3 month calendar, current month in the center, with the current day highlighted. 
