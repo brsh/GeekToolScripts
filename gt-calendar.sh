@@ -27,7 +27,7 @@ function trim() {
 	echo -n "$var"
 }
 
-WEEK="Su Mo Tu We Th Fr Sa"
+WEEK="${Color_Off}${Background}Su Mo Tu We Th Fr Sa${Color_Off}\n"
 PREVOut=$(trim "$(cal $(date -j -v -2m "+%m %Y") | grep .. | tail -1 )")
 PREV=$(trim "$(cal $(date -j -v -1m "+%m %Y") | grep .. | tail +3 )")
 CURR=$(trim "$(cal | tail -n6)")
@@ -40,10 +40,10 @@ printf "${Foreground}"
 date +"%a, %b. %e" | sed -Ee 's/([^1]1)$/\1st/' -Ee 's/([^1]2)$/\1nd/' -Ee 's/([^1]3)$/\1rd/' -Ee 's/([0-9])$/\1th/' -e 's/  / /g' 
 
 #Display the "week day" header
-printf "${Color_Off}${Background}$WEEK${Color_Off}\n" 
+printf "${WEEK}"
 
 #Display the calendars
 printf "${Black}${PREVOut}  ${Yellow}${PREV}  ${Color_Off}${CURR}  ${Yellow}${NEXT}  ${Black}${NEXTOut}" | sed -e "$LINE,$(($LINE+2)) s/ $(date +%e) / $(printf "${Background}")$(date +%e)$(printf "${Color_Off}${Foreground}") /"
 
 #Display the "week day" footer
-printf "${Color_Off}${Background}${WEEK}${Color_Off} "
+printf "${WEEK}"
