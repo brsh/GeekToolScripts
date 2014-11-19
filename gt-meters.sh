@@ -5,13 +5,11 @@ ScriptLoc="$(dirname $0)/lib"
 BG="Off"
 
 function out-batt {
-	local ioreg=$(ioreg -n AppleSmartBattery | grep "ExternalConnected\|CurrentCapacity\|MaxCapacity\|IsCharging" | sed -e s/\|//g -e s/\ //g -e s/=/\ / -e s/\"//g)
-	local ac_adapt=$(echo "$ioreg" | awk ' /External/ { print $2 }')
-	local ac_charging=$(echo "$ioreg" | awk ' /Charg/ { print $2 }')
-	local max_power=$(echo "$ioreg" | awk ' /Max/ { print $2 }')
-	local cur_power=$(echo "$ioreg" | awk ' /Current/ { print $2 }')
-	local bat_percent=$(echo "scale=2;${cur_power} / ${max_power}" | bc)
-	bat_percent=$(echo "${bat_percent} * 100" | bc | sed 's/\.00//')
+	local ac_adapt=""
+	local ac_charging=""
+	local bat_percent="" 
+	
+	eval $(ioreg -n AppleSmartBattery | awk ' BEGIN { FS=" = "} /ExternalConnected/ { print "ac_adapt=" $2 } /CurrentCapacity/ { cur=$2 } /MaxCapacity/ { max=$2 } /IsCharging/ { print "ac_charging=" $2 } END { print "bat_percent=" int(cur / max * 100) }')
 
 	local Label="B"
 
@@ -22,12 +20,11 @@ function out-batt {
 		Label="-"
 	fi
 
-	#~/scripts/geektool/progbar.sh -l ${Label} -n Yellow -b ${BG} -u White -t 60 -o Red -w 20 ${bat_percent} 100 ${Width}
 	${ScriptLoc}/progbar.sh -l ${Label} -n Yellow -b ${BG} -u White -t 60 -o Red -w 20 ${bat_percent} 100 ${Width}
 	printf "\n"
 }
 
-function out-processes {
+function out-processesx {
 	#Couldn't make "else" work in awk... nor the bash varbs... didn't try very hard... 
 	printf "$(ps -arcxo "command=App %cpu=Load" | head -7 | sed s/\ \ *\ /~/ )\n$(ps -amcxo "command=App %mem=Mem" | grep -v "com.apple" | head -7 | sed s/\ \ *\ /~/  )" | pr -2 -t | sed -e "s/\ \ *\ /~/" | tr "\t" "~" | tr -s "~" |
 			awk '
@@ -43,6 +40,27 @@ function out-processes {
 					printf cColor"%-20s %6s"off"    "mColor"%-21s %4s"off"\n", $1, $2, $3, $4; 
 				}
 				END{ printf yellow onblack"%-20s %-5s%%    %-20s %-4s%%"off"\n", x1, x2, x3, x4; }
+				'
+}
+
+function out-processes {
+	#Couldn't make "else" work in awk... nor the bash varbs... didn't try very hard... 
+	printf "$(ps -arcxo "command=App %cpu=Load" | head -7)\n$(ps -amcxo "command=App %mem=Mem" | grep -v "com.apple" | head -7 )" | pr -2 -t | sed "s/\ \ *\ /~/g" | tr "\t" "~" | tr -s "~" |
+			awk '
+				BEGIN{FS="~"; off="'${Color_Off}'"; header="'${Yellow}${On_Black}'"; warn="'${Black}${On_Yellow}'"; alert="'${White}${On_Red}'"}
+				$1 == "App" { printf header"%-20s %6s    %-20s %6s"off"\n", "App", "Load %", "App", "Mem %" }
+				$1 != "App" { 
+					if ($2 > -1) cColor=off;
+					if ($2 > 40) cColor=warn;
+					if ($2 > 80) cColor=alert;
+					if ($4 > -1) mColor=off;
+					if ($4 > 20) mColor=warn;
+					if ($4 > 40) mColor=alert;
+					if (length($1)>20) $1=substr($1, 0, 16) "...";
+					if (length($3)>20) $1=substr($3, 0, 16) "...";
+					printf cColor"%-20s %6s"off"    "mColor"%-20s %6s"off"\n", $1, $2, $3, $4; 
+				}
+				END{ printf header"%-20s %6s    %-20s %6s"off"\n", "App", "Load %", "App", "Mem %" }
 				'
 }
 
@@ -81,7 +99,7 @@ function out-disk {
 }
 
 OPTIND=1 # Reset is necessary if getopts was used previously in the script.  It is a good idea to make this local in a function.
-while getopts ":lcmdbp" opt; do
+while getopts ":lcmdbpx" opt; do
 	case "$opt" in
 		l ) out-load
 		;;
@@ -94,6 +112,8 @@ while getopts ":lcmdbp" opt; do
 		b ) out-batt
 		;;
 		p ) out-processes
+		;;
+		x ) out-processx
 		;;
 		\? )
 			out-processes
