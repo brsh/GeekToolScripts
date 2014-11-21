@@ -1,9 +1,11 @@
 #!/bin/bash
 . ~/scripts/geektool/lib/lib_colors.sh
 
+separator="█"
+
 function show_help {
 	echo " "
-	echo "Please enter the amount and total and bar width as:"
+	echo "Please enter the amount, total, and bar width as:"
 	echo "   ${0##*/} [options] amount [total] [width] "
 	echo "        -r	Reverse the bar's order"
 	echo "        -l	Label"
@@ -14,8 +16,11 @@ function show_help {
 	echo "        -t	High threshold (percent)"
 	echo "        -o	Low indicator color"
 	echo "        -w	Low threshold (percent)"
+	echo "        -s	Specify a different value character"
+	echo "                (default char is ${separator})"
 	echo " "
-	echo "   Color Options: Black, Red, Yellow, Blue, Green, Purple, Cyan, White, Off"
+	echo "   Colors: Black, Red, Yellow, Blue, Green, Purple, Cyan, White, Off, Default"
+	echo "           Note: default is the color set by GeekTool"
 	exit 0
 }
 
@@ -24,30 +29,33 @@ function set_color {
 	local temphold=$(echo ${1} | tr '[:lower:]' '[:upper:]')
 	case "${temphold}" in
 		BLACK)
-			retval="${Black}${On_Black}"
+			retval="${Black}"
 		;;
 		RED)
-			retval="${Red}${On_Red}"
+			retval="${Red}"
 		;;
 		YELLOW)
-			retval="${Yellow}${On_Yellow}"
+			retval="${Yellow}"
 		;;
 		BLUE)
-			retval="${Blue}${On_Blue}"
+			retval="${Blue}"
 		;;
 		GREEN)
-			retval="${Green}${On_Green}"
+			retval="${Green}"
 		;;
 		PURPLE)
-			retval="${Purple}${On_Purple}"
+			retval="${Purple}"
 		;;
 		CYAN)
-			retval="${Cyan}${On_Cyan}"
+			retval="${Cyan}"
 		;;
 		WHITE)
-			retval="${White}${On_White}"
+			retval="${White}"
 		;;
 		OFF)
+			retval="${cHidden}"
+		;;
+		DEFAULT)
 			retval="${Color_Off}"
 		;;
 		*)
@@ -58,7 +66,7 @@ function set_color {
 }
 
 #Defaults
-separator=" "
+separator="█"
 
 normColor=$(set_color "Yellow")
 bgColor=$(set_color "Black")
@@ -74,7 +82,7 @@ highThresh=0
 lowThresh=0
 
 OPTIND=1 # Reset is necessary if getopts was used previously in the script.  It is a good idea to make this local in a function.
-while getopts ":hrl:p:n:b:u:t:o:w:" opt; do
+while getopts ":hrl:p:n:b:u:t:o:w:s:" opt; do
 	case "$opt" in
 		h | \?) show_help
 		;;
@@ -124,6 +132,9 @@ while getopts ":hrl:p:n:b:u:t:o:w:" opt; do
 			if [ ${OPTARG} -gt 0 ] && [ ${OPTARG} -lt 100 ]; then
 				lowThresh=${OPTARG}
 			fi			
+		;;
+		s)	# separator character
+			separator=${OPTARG:0:1}	
 		;;
 	esac
 done

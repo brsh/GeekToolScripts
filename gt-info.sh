@@ -12,6 +12,7 @@ function out-Heading {
 }
 
 function get-net {
+#CLI 1
 #very convoluted (but fact-filled) network info
 local retval
 local ipaddr
@@ -74,7 +75,6 @@ for INTs in $(ifconfig -l); do
 		fi
 		
 		ipconfig=$(ipconfig getpacket ${INTs})		
-		#DHCPServer=$(echo "${ipconfig}" | awk ' BEGIN { FS="[=:]" }; /server_identifier|siaddr/ {$1=""; gsub(" ","",$0); if (!($0=="0.0.0.0")) print $0; exit}')
 		DHCPServer=$(echo "${ipconfig}" | awk ' BEGIN { FS="[=:]" }; /server_identifier/ {$1=""; gsub(" ","",$0); print $0 }')
 		if ! [[ "${DHCPServer}" && "${DHCPServer-x}" ]]; then
 			DHCPServer="Static IP or no DHCPServer"
@@ -107,17 +107,19 @@ done
 }
 
 function get-disk {
+	#CLI 3
 	#the usual disk space info
 	out-Heading "Disk Information"
 	printf "${SubHead}"
 	echo "FileSystem Size Used Avail Used Mounted On" | awk '{printf "  %-24s %6s  %6s %6s   %s %s\n",  $1,$2,$4,$5,$6,$7 }'
 	printf "${Text}"
-	df -H -T nfs,hfs | awk '! /Filesystem/ {printf "  %-24s %6s  %6s %6s   %s\n",  $1,$2,$4,$5,$9 }'
+	df -H -T nfs,hfs | awk 'NR>1 {printf "  %-24s %6s  %6s %6s   %s\n",  $1,$2,$4,$5,$9 }'
 	printf "${Color_Off}"
 	printf "\n"
 }
 
 function get-users {
+	#CLI 6
 	#prints who's logged on to the machine, their tty, and when
 	out-Heading "Active User Summary"
 	printf "${SubHead}"
@@ -129,6 +131,7 @@ function get-users {
 }
 
 function get-screen {
+	#CLI 4
 	#lists the displays and their resolution
 	local retval=""
 	retval=$( system_profiler SPDisplaysDataType | awk ' /^        [a-zA-Z]/ { gsub("  ",""); printf "  '${Item}'%-17s'${Color_Off}'", $0 }; /  Resolution:/ { gsub("  ",""); if ($5=="Retina") x="Retina"; else x=""; printf "'${Text}'%6s%s%s %s'${Color_Off}'\n", $2,$3,$4,x}' )
@@ -139,6 +142,7 @@ function get-screen {
 }
 
 function get-hardware {
+	#CLI 1
 	#pulls some info on the hardware and software
 	local procval=""
 	procval=$(sysctl -n machdep.cpu.brand_string | sed 's/(R)//g; s/(TM)//g; s/\ CPU//g; s/Intel\ //g')
@@ -172,6 +176,7 @@ function get-hardware {
 }
 
 function get-panics {
+	#CLI 5
 	#If there've been any kernel panics reported in the system log, this will find 'em
 	local retval=""
 	retval=$(system_profiler SPLogsDataType | grep -A7 "Panic (system" | grep -vE "Source|Size|Modified|Contents|Panic|--" | tr -s "\n" | sed -e 's/^/\ \ /g' | tail -3 )
@@ -183,6 +188,7 @@ function get-panics {
 }
 
 function date-info {
+	#CLI 7
 	local retval=""
 	
 	#This section expects the calendar files to exist
@@ -240,6 +246,7 @@ function OutBDay {
 }
 
 function HowLongUntil {
+	#CLI 8
 	#A simple function ... that calls other, less simple functions.
 	#Print out how many days until something
 	#Looks for a dates.txt file in a data subfolder under the script folder

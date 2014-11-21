@@ -25,6 +25,16 @@ BPurple='\033[1;35m'      # Purple
 BCyan='\033[1;36m'        # Cyan
 BWhite='\033[1;37m'       # White
 
+# Underline
+UBlack='\033[4;30m'       # Black
+URed='\033[4;31m'         # Red
+UGreen='\033[4;32m'       # Green
+UYellow='\033[4;33m'      # Yellow
+UBlue='\033[4;34m'        # Blue
+UPurple='\033[4;35m'      # Purple
+UCyan='\033[4;36m'        # Cyan
+UWhite='\033[4;37m'       # White
+
 # Background
 On_Black='\033[40m'       # Black
 On_Red='\033[41m'         # Red
@@ -34,6 +44,9 @@ On_Blue='\033[44m'        # Blue
 On_Purple='\033[45m'      # Purple
 On_Cyan='\033[46m'        # Cyan
 On_White='\033[47m'       # White
+
+# Hidden
+cHidden='\033[8m'
 
 ## Local Settings
 Heading=${Yellow}${On_Black}

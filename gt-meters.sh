@@ -3,15 +3,25 @@ Width=50
 ScriptLoc="$(dirname $0)/lib"
 . ${ScriptLoc}/lib_colors.sh
 BG="Off"
+optDisp=1	# 1 means battery display is optional - only displayed if >100%
 
 function out-batt {
 	local bat_percent="" 
+	local doDisplay=1
 
 	local Label="B"
 	
 	eval $(ioreg -n AppleSmartBattery | awk ' BEGIN { FS=" = "} /ExternalConnected/ { if (tolower($2)=="no") print "Label=-" } /CurrentCapacity/ { cur=$2 } /MaxCapacity/ { max=$2 } /IsCharging/ { if (tolower($2)=="yes") print "Label=+" } END { print "bat_percent=" int(cur / max * 100) }')
 
-	${ScriptLoc}/progbar.sh -l ${Label} -n Yellow -b ${BG} -u White -t 60 -o Red -w 20 ${bat_percent} 100 ${Width}
+	if [ ${optDisp} -eq 1 ]; then
+		if [ "${Label}" == "B" ]; then
+			doDisplay=0
+		fi
+	fi
+
+	if [ ${doDisplay} -eq 1 ]; then
+		${ScriptLoc}/progbar.sh -l ${Label} -n Yellow -b ${BG} -u Default -t 60 -o Red -w 20 ${bat_percent} 100 ${Width}
+	fi
 	printf "\n"
 }
 
@@ -49,25 +59,26 @@ function out-memory {
 		K|k ) memtotal=16000000
 		;;
 	esac
-	${ScriptLoc}/progbar.sh -l M -n Yellow -b ${BG} -u Red -t 95 -o White -w 85 $(echo "${memuse}" | sed s/[mMgGkK]//) ${memtotal} ${Width}
-	printf "\n"
+	
+		${ScriptLoc}/progbar.sh -l M -n Yellow -b ${BG} -u Red -t 95 -o Default -w 85 $(echo "${memuse}" | sed s/[mMgGkK]//) ${memtotal} ${Width}
+		printf "\n"
 }
 
 function out-load {
 	#CPU total (via all processes' CPU via ps)
-	${ScriptLoc}/progbar.sh -l L -n Yellow -b ${BG} -u Red -t 85 -o White -w 50 $(ps axo %cpu | awk '{sum+=$1 } END {printf "%d", sum}') 400 ${Width}
+	${ScriptLoc}/progbar.sh -l L -n Yellow -b ${BG} -u Red -t 85 -o Default -w 50 $(ps axo %cpu | awk '{sum+=$1 } END {printf "%d", sum}') 400 ${Width}
 	printf "\n"
 }
 
 function out-cpu {
 	#CPU overall utilization (via top)
-	${ScriptLoc}/progbar.sh -l C -n Yellow -b ${BG} -u Red -t 85 -o White -w 50 $(top -l 2 | awk 'BEGIN { FS="sys, \| idle" } /CPU usage/{i++} i==2{printf "%d", 100-$2; exit;}') 100 ${Width}
+	${ScriptLoc}/progbar.sh -l C -n Yellow -b ${BG} -u Red -t 85 -o Default -w 50 $(top -l 2 | awk 'BEGIN { FS="sys, \| idle" } /CPU usage/{i++} i==2{printf "%d", 100-$2; exit;}') 100 ${Width}
 	printf "\n"
 }
 
 function out-disk {
 	#Disk util (via df)
-	${ScriptLoc}/progbar.sh -l D -n Yellow -b ${BG} -u Red -t 95 -o White -w 70 $(df -h "/" | awk 'NR==2{printf "%d", $5}') 100 ${Width}
+	${ScriptLoc}/progbar.sh -l D -n Yellow -b ${BG} -u Red -t 95 -o Default -w 70 $(df -h "/" | awk 'NR==2{printf "%d", $5}') 100 ${Width}
 	printf "\n"
 }
 
@@ -92,7 +103,6 @@ while getopts ":lcmdbp" opt; do
 			out-cpu
 			out-memory
 			out-disk
-			out-batt
 		;;
 	esac
 done
