@@ -196,9 +196,11 @@ function date-info {
 	#see man calendar for more information...
 	if [ -r "${HOME}/.calendar/calendar" ]; then
 		retval=$(calendar -W 0 | sed -E "s/$(date -j '+%b %_d')../~ /" | fold -s -w 73 | awk ' $1!="~" { printf "    %s'${Color_Off}'\n", $0 } $1=="~" { $1=""; printf "'${Item}'*'${Text}'%s\n", $0 };')
-		out-Heading "On this day in history..."
-		echo "${retval}"
-		printf "\n"
+		if ! [ -z "${retval}" ]; then
+			out-Heading "On this day in history..."
+			echo "${retval}"
+			printf "\n"
+		fi
 	fi
 }
 
