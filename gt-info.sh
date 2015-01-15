@@ -28,8 +28,8 @@ local MACAddr
 local WiFiDeets=""
 local ifconfig=""
 local ipconfig=""
+local AllInfo=""
 
-out-Heading "Network Information"
 for INTs in $(ifconfig -l); do
 	if [ "${INTs:0:2}" = "en" ]; then
 		retval=""
@@ -90,20 +90,36 @@ for INTs in $(ifconfig -l); do
 		DNSServer=$(echo "${ipconfig}" | awk 'BEGIN { FS="[{}]"}; /domain_name_server[[:space:]]/ { print $2 }')
 		
 		if [[ "${ipaddr}" && "${ipaddr-x}" ]]; then
-			printf " ${SubHead}${ConType} - interface ${INTs}${Color_Off}\n"
-			printf "   ${Item}IP Address:${Color_Off}\t${Text}${ipaddr} / ${netcalc}${Color_Off}\n"
-			printf "   ${Item}MAC Address:${Color_Off}\t${Text}${MACAddr}${Color_Off}\n"
-			printf "   ${Item}DHCP Server:${Color_Off}\t${Text}${DHCPServer}${ColorOff} ${DHCPLeaseExpires}${ColorOff}\n"
-			printf "   ${Item}Def Gateway:${Color_Off}\t${Text}${defgateway}${Color_Off}\n"
-			printf "   ${Item}DNS Servers:${Color_Off}\t${Text}${DNSServer}${Color_Off}\n"
+# 			printf " ${SubHead}${ConType} - interface ${INTs}${Color_Off}\n"
+# 			printf "   ${Item}IP Address:${Color_Off}\t${Text}${ipaddr} / ${netcalc}${Color_Off}\n"
+# 			printf "   ${Item}MAC Address:${Color_Off}\t${Text}${MACAddr}${Color_Off}\n"
+# 			printf "   ${Item}DHCP Server:${Color_Off}\t${Text}${DHCPServer}${ColorOff} ${DHCPLeaseExpires}${ColorOff}\n"
+# 			printf "   ${Item}Def Gateway:${Color_Off}\t${Text}${defgateway}${Color_Off}\n"
+# 			printf "   ${Item}DNS Servers:${Color_Off}\t${Text}${DNSServer}${Color_Off}\n"
+# 			if [ "${ConType}" = "Wi-Fi" ]; then
+# 				printf "   ${Item}WiFi SSID:${Color_Off}\t${Text}${SSID}${WiFiDeets}${Color_Off}\n"
+# 			fi
+# 			printf "\n"
+			AllInfo="${AllInfo} ${SubHead}${ConType} - interface ${INTs}${Color_Off}\n"
+			AllInfo="${AllInfo}   ${Item}IP Address:${Color_Off}\t${Text}${ipaddr} / ${netcalc}${Color_Off}\n"
+			AllInfo="${AllInfo}   ${Item}MAC Address:${Color_Off}\t${Text}${MACAddr}${Color_Off}\n"
+			AllInfo="${AllInfo}   ${Item}DHCP Server:${Color_Off}\t${Text}${DHCPServer}${ColorOff} ${DHCPLeaseExpires}${ColorOff}\n"
+			AllInfo="${AllInfo}   ${Item}Def Gateway:${Color_Off}\t${Text}${defgateway}${Color_Off}\n"
+			AllInfo="${AllInfo}   ${Item}DNS Servers:${Color_Off}\t${Text}${DNSServer}${Color_Off}\n"
 			if [ "${ConType}" = "Wi-Fi" ]; then
-				printf "   ${Item}WiFi SSID:${Color_Off}\t${Text}${SSID}${WiFiDeets}${Color_Off}\n"
+				AllInfo="${AllInfo}   ${Item}WiFi SSID:${Color_Off}\t${Text}${SSID}${WiFiDeets}${Color_Off}\n"
 			fi
-			printf "\n"
+			AllInfo="${AllInfo}\n"
 		fi
 	retval=""
 	fi
 done
+
+if [[ "${AllInfo}" && "${AllInfo}" ]]; then
+	out-Heading "Network Information"
+	printf "${AllInfo}"
+fi
+
 }
 
 function get-disk {
@@ -172,7 +188,43 @@ function get-hardware {
 	printf "   ${Item}Up for:${Color_Off} \t${Text}${uptime}${Color_Off}\n"
 	printf "   ${Item}Booted:${Color_Off}\t${Text}${WhenBooted}  (current boot)${Color_Off}\n"
 	printf "${Color_Off}${Text}${lastfewboots}${Color_Off}\n"
+	get-ADPassword
 	printf "\n"
+}
+
+function get-ADPassword {
+##Pull domain and password info
+# Username
+Me=$(whoami)
+# SMB-style domain name
+Domain=$(dscl localhost -read /Active\ Directory SubNodes| awk '{ print $2}')
+
+if [[ "${Domain}" && "${Domain-x}" ]]; then
+	# DNS-style domain name
+	LDAPName=$(dsconfigad -show | awk ' BEGIN {FS="="} /Forest/ { gsub(" ",""); print $2 }')
+	# LDAP-style domain name
+	LDAProot=$(dscl localhost -read /Active\ Directory/${Domain}/${LDAPName} LDAPSearchBaseSuffix 2> /dev/null | awk '{ print tolower($2) }')
+
+	# When was the password last set (in seconds)
+	PwdLastSet=$(dscl localhost -read /Active\ Directory/${Domain}/${LDAPName}/Users/${Me} SMBPasswordLastSet 2> /dev/null| awk '{ printf "%d", ($2 / 10000000 - 11644473600) }') 
+
+	# How old can the password be (in seconds)
+	PwdMaxAge=$(ldapsearch -LLL -Q -s base -H ldap://${LDAPName} -b "${LDAProot}" maxPwdAge 2> /dev/null | awk '/maxPwdAge/ {print (($2 * -1) / 10000000) }')
+
+	# Figure out the important date information
+	Now=$(date -j +%s)
+	WhenLast=$(date -r ${PwdLastSet} +'%a, %b %d, %Y')
+	WhenNextSec=$(( PwdLastSet + PwdMaxAge ))
+	WhenNext=$(date -r ${WhenNextSec} +'%a, %b %d, %Y')
+	WhenNextDays=$(( (${WhenNextSec} - ${Now}) / 60 / 60 / 24 ))
+
+	# Print what we've found
+	printf "\n"
+	#printf "   UserName:          ${Me}\n"
+	#printf "   AD Domain:         ${Domain} (${LDAPName})\n"
+	printf "   ${Item}AD Password last set:${Color_Off} ${Text}${WhenLast}${Color_Off}\n"
+	printf "   ${Item}AD Password NEXT set:${Color_Off} ${Text}${WhenNext}  (in ${WhenNextDays} days)${Color_Off}\n"
+fi
 }
 
 function get-panics {
