@@ -195,11 +195,20 @@ function get-hardware {
 function get-ADPassword {
 ##Pull domain and password info
 # Username
+local Me=""
+local Domain=""
+
+
 Me=$(whoami)
 # SMB-style domain name
-Domain=$(dscl localhost -read /Active\ Directory SubNodes| awk '{ print $2}')
+Domain=$(dscl localhost -read /Active\ Directory SubNodes 2> /dev/null | awk '{ print $2}')
 
 if [[ "${Domain}" && "${Domain-x}" ]]; then
+	local LDAPName=""
+	local LDAProot=""
+	local PwdLastSet=""
+	local PwdMaxAge=""
+
 	# DNS-style domain name
 	LDAPName=$(dsconfigad -show | awk ' BEGIN {FS="="} /Forest/ { gsub(" ",""); print $2 }')
 	# LDAP-style domain name
@@ -209,21 +218,27 @@ if [[ "${Domain}" && "${Domain-x}" ]]; then
 	PwdLastSet=$(dscl localhost -read /Active\ Directory/${Domain}/${LDAPName}/Users/${Me} SMBPasswordLastSet 2> /dev/null| awk '{ printf "%d", ($2 / 10000000 - 11644473600) }') 
 
 	# How old can the password be (in seconds)
-	PwdMaxAge=$(ldapsearch -LLL -Q -s base -H ldap://${LDAPName} -b "${LDAProot}" maxPwdAge 2> /dev/null | awk '/maxPwdAge/ {print (($2 * -1) / 10000000) }')
+	# and kill it in 5 seconds if it takes too long
+	# note: the killall method is potentially dangerous if you use ldapsearch for anything else
+	(sleep 5 && killall ldapsearch) & PwdMaxAge=$(ldapsearch -LLL -Q -s base -H ldap://${LDAPName} -b "${LDAProot}" maxPwdAge 2> /dev/null | awk '/maxPwdAge/ {print (($2 * -1) / 10000000) }')
 
-	# Figure out the important date information
-	Now=$(date -j +%s)
-	WhenLast=$(date -r ${PwdLastSet} +'%a, %b %d, %Y')
-	WhenNextSec=$(( PwdLastSet + PwdMaxAge ))
-	WhenNext=$(date -r ${WhenNextSec} +'%a, %b %d, %Y')
-	WhenNextDays=$(( (${WhenNextSec} - ${Now}) / 60 / 60 / 24 ))
-
-	# Print what we've found
-	printf "\n"
-	#printf "   UserName:          ${Me}\n"
-	#printf "   AD Domain:         ${Domain} (${LDAPName})\n"
-	printf "   ${Item}AD Password last set:${Color_Off} ${Text}${WhenLast}${Color_Off}\n"
-	printf "   ${Item}AD Password NEXT set:${Color_Off} ${Text}${WhenNext}  (in ${WhenNextDays} days)${Color_Off}\n"
+	if [[ "${PwdMaxAge}" && "${PwdMaxAge-x}" ]]; then
+		# Figure out the important date information
+		local Now=$(date -j +%s)
+		local WhenLast=$(date -r ${PwdLastSet} +'%a, %b %d, %Y')
+		local WhenNextSec=$(( PwdLastSet + PwdMaxAge ))
+		local WhenNext=$(date -r ${WhenNextSec} +'%a, %b %d, %Y')
+		local WhenNextDays=$(( (${WhenNextSec} - ${Now}) / 60 / 60 / 24 ))
+	fi
+	
+	if [[ "${WhenLast}" && "${WhenLast-x}" ]]; then
+		# Print what we've found
+		printf "\n"
+		#printf "   UserName:          ${Me}\n"
+		#printf "   AD Domain:         ${Domain} (${LDAPName})\n"
+		printf "   ${Item}AD Password last set:${Color_Off} ${Text}${WhenLast}${Color_Off}\n"
+		printf "   ${Item}AD Password NEXT set:${Color_Off} ${Text}${WhenNext}  (in ${WhenNextDays} days)${Color_Off}\n"
+	fi
 fi
 }
 
@@ -231,9 +246,12 @@ function get-panics {
 	#CLI 5
 	#If there've been any kernel panics reported in the system log, this will find 'em
 	local retval=""
-	retval=$(system_profiler SPLogsDataType | grep -A7 "Panic (system" | grep -vE "Source|Size|Modified|Contents|Panic|--" | tr -s "\n" | sed -e 's/^/\ \ /g' | tail -3 )
+	#retval=$(system_profiler SPLogsDataType | grep -A7 "Panic (system" | grep -vE "Source|Size|Modified|Contents|Panic|--" | tr -d "\n" | sed -e 's/^/\ \ /g' | tail -3 )
+
+	retval=$(system_profiler SPLogsDataType | grep -A7 "Panic (system" | awk 'func formatdate(dWhen) { SQ="\047"; cmd="date -j -f " SQ "%a %b %d %H:%M:%S %Y" SQ " " SQ "+%a  %m/%d/%Y at %_I:%M%p" SQ " " SQ dWhen SQ; cmd|getline retval; close(cmd); return retval } BEGIN {i=0}; /^[a-zA-Z]/ { i+=1; printf "  %s", formatdate($0); if (i==3) exit; }')
+
 	if [[ ${retval} && ${retval-x} ]]; then
-		out-Heading "Recent Kernel Panics"
+		out-Heading "Kernel Panics"
 		printf "${Text}${retval}${Color_Off}\n"
 		printf "\n"
 	fi
