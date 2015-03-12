@@ -220,7 +220,7 @@ if [[ "${Domain}" && "${Domain-x}" ]]; then
 	# How old can the password be (in seconds)
 	# and kill it in 5 seconds if it takes too long
 	# note: the killall method is potentially dangerous if you use ldapsearch for anything else
-	(sleep 5 && killall ldapsearch) & PwdMaxAge=$(ldapsearch -LLL -Q -s base -H ldap://${LDAPName} -b "${LDAProot}" maxPwdAge 2> /dev/null | awk '/maxPwdAge/ {print (($2 * -1) / 10000000) }')
+	(sleep 5 && killall ldapsearch 2> /dev/null) & PwdMaxAge=$(ldapsearch -LLL -Q -s base -H ldap://${LDAPName} -b "${LDAProot}" maxPwdAge 2> /dev/null | awk '/maxPwdAge/ {print (($2 * -1) / 10000000) }')
 
 	if [[ "${PwdMaxAge}" && "${PwdMaxAge-x}" ]]; then
 		# Figure out the important date information
@@ -280,25 +280,31 @@ function OutBDay {
 	#		Target = the date to count to (in MM/DD/YY-Hr-Mn format)
 	#		Title = text to print before the count
 	#		InclTotals = 0 or nothing incl total year count; 1 don't incl total year count
-		
+	
+	#Establish base vars
 	local retval=""
 	local HowOldAmI=""
 	local BeforeBDay=0
 	
-	local bdate="${1}"
-	local InclTotal=${3:-0}
-	local sTitle="${2}"
+	#break out the arguments
+	local bdate="${1}"			#The first argument supplied (date)
+	local InclTotal=${3:-0}		#The third argument - or 0 if nothing (include age)
+	local sTitle="${2}"			#The second argument (the text to display)
 
-	local bmonth=${bdate:0:2}
-	local bday=${bdate:3:2}
-	local byear=${bdate:6:4}
+	#break out the date components
+	local bmonth=${bdate:0:2}	#The month
+	local bday=${bdate:3:2}		#The day
+	local byear=${bdate:6:4}	#The year
 
+	#Get today in the "correct" format
 	local cdate=$(date -j "+%m/%d/%Y-%H-%M")
 
+	#Break out today components
 	local cmonth=${cdate:0:2}
 	local cday=${cdate:3:2}
 	local cyear=${cdate:6:4}
 
+	#Check if the "when" is before or after today
 	if [[ "${cmonth#0}" -lt "${bmonth#0}" ]] || [[ "${cmonth#0}" -eq "${bmonth#0}" && "${cday#0}" -lt "${bday#0}" ]]; then
 		let HowOldAmI=cyear-byear-1
 		BeforeBDay=0
@@ -307,14 +313,17 @@ function OutBDay {
  		BeforeBDay=1
 	fi
 
-	#output
+	#Prepare the "next occurence" date - including the display thereof
 	local NextBDay="${bmonth}/${bday}/$(date -j -v +${BeforeBDay}y +%Y)-00-00"
+	local NextBDayExp=$(date -j -f "%m/%d/%Y" ${NextBDay:0:10} "+%A %m/%d/%Y" | awk '{ printf "%-8s %s", $1, $2 }')
 	
-	printf "  ${Item}$(echo "${sTitle}:" | awk ' {printf "%-18s", $0}')${Text}"
-	printf "$(LongOutTime $(dateDiff $(date2secs ${cdate}) $(date2secs ${NextBDay})) m)" | awk '{ printf " %6s  %4s   %4s", $1, $3, $5; }'
+	#output
+	printf "  ${Item}$(echo "${sTitle}:" | awk ' {printf "%-21s", $0}')${Text}"
+	printf "$(LongOutTime $(dateDiff $(date2secs ${cdate}) $(date2secs ${NextBDay})) d)" | awk '{ printf " %6s ", $1; }'
 
-	printf "   ${NextBDay:0:10}"
-	if [ "${InclTotal}" -eq "0" ]; then printf "$((${HowOldAmI} + 1 ))" | awk '{ printf "  (%3s)", $1;}'; fi
+	printf "  ${NextBDayExp}"
+	if [ "${InclTotal}" -eq "0" ]; then printf "$((${HowOldAmI} + 1 ))" | awk '{ printf "   (%3s)", $1;}'; fi
+
 }
 
 function HowLongUntil {
@@ -331,7 +340,7 @@ function HowLongUntil {
 
 	#here's the heading
 	printf "${SubHead}"
-	echo " ~Days~Hrs~Mins~Next Date~Years" | awk 'BEGIN{FS="~"}{ printf "%-21s %5s %5s %6s   %-10s  %5s", $1, $2, $3, $4, $5, $6; }'
+	echo " ~Days~Next Date~Years" | awk 'BEGIN{FS="~"}{ printf "%-23s %6s        %-10s       %5s", $1, $2, $3, $4; }'
 	printf "\n"
 
 	#here's where we parse the file

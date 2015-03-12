@@ -51,17 +51,34 @@ function LongOutTime {
 		local sHour="hours"
 		local sMinute="minutes"
 		local sSecond="seconds"
-		
-		if [ ${daysused} -eq 1 ]; then sDay="day"; fi
-		if [ ${hoursused} -eq 1 ]; then sHour="hour"; fi
-		if [ ${minutesused} -eq 1 ]; then sMinute="minute"; fi
-		if [ ${secondsused} -eq 1 ]; then sSecond="second"; fi
-		
-		#color and display
-		if [ ${switches} -gt 67 ]; then retval=${retval}"${daysused} ${sDay}"; fi
-       	if [ ${switches} -gt 71 ]; then retval=${retval}"  ${hoursused} ${sHour}"; fi
-		if [ ${switches} -gt 76 ]; then retval=${retval}"  $(echo ${minutesused} | sed -e :a -e 's/^.\{1,1\}$/0&/;ta' ) ${sMinute}"; fi
-		if [ ${switches} -gt 82 ]; then retval=${retval}"  $(echo ${secondsused} | sed -e :a -e 's/^.\{1,1\}$/0&/;ta' ) ${sSecond}"; fi
+
+		#Put it all together
+		#Outputs Seconds, Minutes, Hours, Days - depending on what was selected
+		#Rounds up the next item, if the current is turned off
+		#(that is, if minutes are off, then hours are increased to make a rough estimate)
+		if [ ${switches} -gt 82 ]; then 
+			if [ ${secondsused} -eq 1 ]; then sSecond="second"; fi
+			retval="  $(echo ${secondsused} | sed -e :a -e 's/^.\{1,1\}$/0&/;ta' ) ${sSecond}"${retval}
+		else
+			if (( secondsused > 0 )); then (( minutesused = minutesused + 1 )); fi
+		fi
+		if [ ${switches} -gt 76 ]; then 
+			if [ ${minutesused} -eq 1 ]; then sMinute="minute"; fi
+			retval="  $(echo ${minutesused} | sed -e :a -e 's/^.\{1,1\}$/0&/;ta' ) ${sMinute}"${retval}
+		else
+			if (( minutesused > 0 )); then (( hoursused = hoursused + 1 )); fi
+		fi
+       	if [ ${switches} -gt 71 ]; then 
+			if [ ${hoursused} -eq 1 ]; then sHour="hour"; fi
+       		retval="  ${hoursused} ${sHour}"${retval}; 
+       	else
+			if (( hoursused > 0 )); then (( daysused = daysused + 1 )); fi
+       	fi
+		if [ ${switches} -gt 67 ]; then 
+			if [ ${daysused} -eq 1 ]; then sDay="day"; fi
+			retval="${daysused} ${sDay}"${retval}
+		fi
+
 		printf "${retval}" 
 	fi
 }
