@@ -315,7 +315,7 @@ function OutBDay {
 
 	#Prepare the "next occurence" date - including the display thereof
 	local NextBDay="${bmonth}/${bday}/$(date -j -v +${BeforeBDay}y +%Y)-00-00"
-	local NextBDayExp=$(date -j -f "%m/%d/%Y" ${NextBDay:0:10} "+%A %m/%d/%Y" | awk '{ printf "%-8s %s", $1, $2 }')
+	local NextBDayExp=$(date -j -f "%m/%d/%Y" ${NextBDay:0:10} "+%A %m/%d/%Y" | awk '{ printf "%-9s %s", $1, $2 }')
 	
 	#output
 	printf "  ${Item}$(echo "${sTitle}:" | awk ' {printf "%-21s", $0}')${Text}"
@@ -340,7 +340,7 @@ function HowLongUntil {
 
 	#here's the heading
 	printf "${SubHead}"
-	echo " ~Days~Next Date~Years" | awk 'BEGIN{FS="~"}{ printf "%-23s %6s        %-10s       %5s", $1, $2, $3, $4; }'
+	echo " ~Days~Next Date~Years" | awk 'BEGIN{FS="~"}{ printf "%-23s %6s        %-10s        %5s", $1, $2, $3, $4; }'
 	printf "\n"
 
 	#here's where we parse the file
@@ -354,12 +354,49 @@ function HowLongUntil {
 	fi
 
 	#and here're the manual items
-	OutBDay "11/27/2014-00-00" "Thanksgiving" 1
+	#Thanksgiving is special (4 thurs in Nov)
+	OutBDay "$(FindNextOccurence 11 TH 4)-00-00" "Thanksgiving" 1
 	printf "\n"
+
 	OutBDay "12/25/2014-00-00" "Christmas" 1
 	printf "\n"
 	OutBDay "01/01/2015-00-00" "New Years" 1
 	printf "\n"
+#	OutBDay "$(FindNextOccurence 03 SU 2)-00-00" "DST Starts (Lose)" 1
+#	printf "\n"
+#	OutBDay "$(FindNextOccurence 11 SU 1)-00-00" "DST Ends (Gain!)" 1
+#	printf "\n"
+
+}
+
+function FindNextOccurence {
+	#Syntax: FindNextOccurence Month Day Which
+	#	where Month is 2 digits for month
+	#         Day is 2 letters (CAP'd) of the day (MO, TU, WE, etc)
+	#		  Which is which one (1 = first, 2 = second, etc)
+	#Finds the next occurence of a holiday that occurs on different dates each year
+	#Thanksgiving is 4th Thurs in Nov (so "FindNextOccurence 11 TH 4")
+	#President's Day is 3rd Mon in Feb (so "FindNextOccurence 2 MO 3")
+	local tYear
+	local tDay
+	local sMonth
+	local sDay
+	local iNumber
+	sMonth="${1}"
+	sDay="${2}"
+	iNumber="${3}"
+	#What's the current year
+	tYear=$(date -j +%Y)
+	tDay=$(specday ${tYear} ${sMonth} ${sDay} ${iNumber})
+	#Now check if we've passed that month and day this year
+	#Note: I force base 10 on all the numbers because bash can get confused with leading 0's
+	if (( 10#$(date -j +%m) == 10#${sMonth} && 10#$(date -j +%d) > 10#${tDay} )) || (( 10#$(date -j +%m) > 10#${sMonth} )) ; then
+			#Recalc the date for next year 
+			tYear=$(date -j -v+1y +%Y)
+			tDay=$(specday ${tYear} ${sMonth} ${sDay} ${iNumber})
+	fi
+	#and return the date we found
+	printf "${sMonth}/${tDay}/${tYear}"	
 }
 
 function Working {

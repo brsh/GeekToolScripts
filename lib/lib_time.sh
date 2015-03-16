@@ -94,3 +94,20 @@ function dateDiff {
     if ((diffSec < 0)); then abs=-1; else abs=1; fi
     echo $((diffSec*abs))
 }
+
+function specday {
+	#parse ncal (horizontal calendar) for the nth occurence of a specific day
+	#syntax: specday Year Month Day Number
+	#	where Year is 4 digits for year
+	#		  Month is 2 digits for month
+	#         Day is 2 letters (CAP'd) of the day (MO, TU, WE, etc)
+	#		  Which is which one (1 = first, 2 = second, etc)
+	#Finds the next occurence of a holiday that occurs on different dates each year
+	#Thanksgiving is 4th Thurs in Nov (so "specday 2015 11 TH 4")
+	#President's Day is 3rd Mon in Feb (so "specday 2016 2 MO 3")
+	#Yeah, I could build better syntax checking into it... and maybe I will someday
+	local retval
+	retval=$(ncal $2 $1 | tr '[:lower:]' '[:upper:]' | awk -v n="$3" -v sW="$4" ' BEGIN { sW=sW+1 } $1 == n { printf "%02d", $sW  }')
+	printf ${retval}
+}
+
