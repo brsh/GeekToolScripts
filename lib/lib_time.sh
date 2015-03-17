@@ -96,18 +96,46 @@ function dateDiff {
 }
 
 function specday {
-	#parse ncal (horizontal calendar) for the nth occurence of a specific day
-	#syntax: specday Year Month Day Number
-	#	where Year is 4 digits for year
-	#		  Month is 2 digits for month
-	#         Day is 2 letters (CAP'd) of the day (MO, TU, WE, etc)
-	#		  Which is which one (1 = first, 2 = second, etc)
-	#Finds the next occurence of a holiday that occurs on different dates each year
-	#Thanksgiving is 4th Thurs in Nov (so "specday 2015 11 TH 4")
-	#President's Day is 3rd Mon in Feb (so "specday 2016 2 MO 3")
-	#Yeah, I could build better syntax checking into it... and maybe I will someday
-	local retval
-	retval=$(ncal $2 $1 | tr '[:lower:]' '[:upper:]' | awk -v n="$3" -v sW="$4" ' BEGIN { sW=sW+1 } $1 == n { printf "%02d", $sW  }')
-	printf ${retval}
+        #parse cal for the nth occurence of a specific day
+        #syntax: specday Year Month Day Number
+        #       where Year is 4 digits for year
+        #             Month is 2 digits for month
+        #             Day is 2 letters of the day (MO, TU, WE, etc)
+        #         	  Which is which one (1 = first, 2 = second, etc)
+        #Finds the next occurence of a holiday that occurs on different dates each year
+        #Thanksgiving is 4th Thurs in Nov (so "specday 2015 11 TH 4")
+        #President's Day is 3rd Mon in Feb (so "specday 2016 2 MO 3")
+        #Yeah, I could build better syntax checking into it... and maybe I will someday
+        local retval
+        local dayIs
+
+        case "${3}" in
+                SU | su | Su | sU )
+                        dayIs=1
+                ;;
+                MO | mo | Mo | mO)
+                        dayIs=2
+                ;;
+                TU | tu | Tu | tU )
+                        dayIs=3
+                ;;
+                WE | we | We | wE )
+                        dayIs=4
+                ;;
+                TH | th | Th | tH )
+                        dayIs=5
+                ;;
+                FR | fr | Fr | fR )
+                        dayIs=6
+                ;;
+                SA | sa | Sa | sA )
+                        dayIs=7
+                ;;
+        esac
+#echo "$2 $1 - $dayIs - $4" 2>1
+        retval=$(cal $2 $1 | tail -n +3 | awk -v n=${dayIs} -v sW="$4" ' NR==sW { printf "%02d", $n } ')
+
+#retval="19"
+        printf ${retval}
 }
 
