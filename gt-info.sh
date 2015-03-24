@@ -3,14 +3,6 @@ ScriptLoc="$(dirname $0)/lib"
 source ${ScriptLoc}/lib_colors.sh
 source ${ScriptLoc}/lib_time.sh
 
-function out-Heading {	
-	#Makes a pretty (and consistent) heading 
-	printf "${Heading}"
-	printf "${*}"
-	printf "%0.s " {1..100}
-	printf "${Color_Off}\n"
-}
-
 function get-net {
 #CLI 1
 #very convoluted (but fact-filled) network info
@@ -90,16 +82,6 @@ for INTs in $(ifconfig -l); do
 		DNSServer=$(echo "${ipconfig}" | awk 'BEGIN { FS="[{}]"}; /domain_name_server[[:space:]]/ { print $2 }')
 		
 		if [[ "${ipaddr}" && "${ipaddr-x}" ]]; then
-# 			printf " ${SubHead}${ConType} - interface ${INTs}${Color_Off}\n"
-# 			printf "   ${Item}IP Address:${Color_Off}\t${Text}${ipaddr} / ${netcalc}${Color_Off}\n"
-# 			printf "   ${Item}MAC Address:${Color_Off}\t${Text}${MACAddr}${Color_Off}\n"
-# 			printf "   ${Item}DHCP Server:${Color_Off}\t${Text}${DHCPServer}${ColorOff} ${DHCPLeaseExpires}${ColorOff}\n"
-# 			printf "   ${Item}Def Gateway:${Color_Off}\t${Text}${defgateway}${Color_Off}\n"
-# 			printf "   ${Item}DNS Servers:${Color_Off}\t${Text}${DNSServer}${Color_Off}\n"
-# 			if [ "${ConType}" = "Wi-Fi" ]; then
-# 				printf "   ${Item}WiFi SSID:${Color_Off}\t${Text}${SSID}${WiFiDeets}${Color_Off}\n"
-# 			fi
-# 			printf "\n"
 			AllInfo="${AllInfo} ${SubHead}${ConType} - interface ${INTs}${Color_Off}\n"
 			AllInfo="${AllInfo}   ${Item}IP Address:${Color_Off}\t${Text}${ipaddr} / ${netcalc}${Color_Off}\n"
 			AllInfo="${AllInfo}   ${Item}MAC Address:${Color_Off}\t${Text}${MACAddr}${Color_Off}\n"
@@ -115,7 +97,7 @@ for INTs in $(ifconfig -l); do
 	fi
 done
 
-if [[ "${AllInfo}" && "${AllInfo}" ]]; then
+if [[ "${AllInfo}" && "${AllInfo-x}" ]]; then
 	out-Heading "Network Information"
 	printf "${AllInfo}"
 fi

@@ -53,3 +53,19 @@ Heading=${Yellow}${On_Black}
 Text=${White}
 SubHead=${Yellow}
 Item=${BWhite}
+
+function out-Heading {
+        #Makes a pretty (and consistent) heading
+        #Shades the background of the header to the width of the screen
+        #The f=100 below is for GeekTool without wrap (allows 100 spaces of background)
+        local i=$(stty size | cut -d" " -f2)
+        local sT="${*}"
+        local w=${#sT}
+        local f=$(( i - w ))
+        if (( f < 1 )); then f=100; fi
+
+        printf "${Heading}"
+        printf "${*}"
+        printf "%"$f"s"
+        printf "${Color_Off}\n"
+}
