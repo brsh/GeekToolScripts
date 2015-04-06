@@ -11,7 +11,8 @@ for i in $( find /Users/bshea/scripts/github -type d -d 1 ); do
 		printf "${Yellow}$(echo "${i##*/}")${Color_Off}\n"
 
 		#Print the status of the repo		
-		git status | awk ' $1 != "#" { gsub(/ \(.*\)/,"",$0); print "  "toupper(substr($0,1,1)) substr($0,2,1000) }'
+##		git status | awk ' $1 != "#" { gsub(/ \(.*\)/,"",$0); print "  "toupper(substr($0,1,1)) substr($0,2,1000) }'
+		git status | awk ' ! /^$|^  \(/ { gsub(/ \(.*\)/,"",$0); print "  "toupper(substr($0,1,1)) substr($0,2,1000) }'
 
 		#Output the git log for the past 2 commits and when they happened
 		git --no-pager log --abbrev-commit --date=relative -2 | 
