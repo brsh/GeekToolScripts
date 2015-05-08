@@ -121,9 +121,9 @@ function get-users {
 	#prints who's logged on to the machine, their tty, and when
 	out-Heading "Active User Summary"
 	printf "${SubHead}"
-	echo 'UserName~Terminal~Logged In' | awk ' BEGIN {FS="~"}; { printf "  %-16s %-15s %s\n", $1,$2,$3 }' 
+	echo 'UserName~Terminal~Logged In~From?' | awk ' BEGIN {FS="~"}; { printf "  %-13s %-13s %-12s   %s\n", $1,$2,$3,$4 }' 
 	printf "${Text}"
-	who | awk '{ printf "  %-16s %-15s %-3s %2s %-5s\n", $1, $2, $3, $4, $5 }'
+	who | awk '{ if ($6=="") $6="(local)"; printf "  %-13s %-13s %-3s %2s %-5s   %s\n", $1, $2, $3, $4, $5, $6 }'
 	printf "${Color_Off}"
 	printf "\n"
 }
