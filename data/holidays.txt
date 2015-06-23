@@ -1,0 +1,9 @@
+New Years,01/01/2001,Always,Explicit
+DST Starts (Lose),03 SU 2,Close,FindNext
+DST Ends (Gain!),11 SU 1,Close,FindNext
+President's Day,02 MO 3,Close,FindNext
+Memorial Day,05 MO LA,Close,FindNext
+July 4th,07/04/2001,Close,Explicit
+Labor Day,09 MO 01,Close,FindNext
+Thanksgiving,11 TH 04,Always,FindNext
+Christmas,12/25/2015,Always,Explicit

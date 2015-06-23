@@ -17,7 +17,7 @@ function LongOutTime {
 	## First, get if there's a display filter switch
 	##     (we'll use Z otherwise... it's above them all)
 	local switches=${2:-Z}
-	
+
 	## Now, let's make it capitalized for convenience
 	switches=$(echo ${switches:0:1} | tr '[:lower:]' '[:upper:]')
 
@@ -132,10 +132,12 @@ function specday {
                         dayIs=7
                 ;;
         esac
-#echo "$2 $1 - $dayIs - $4" 2>1
-        retval=$(cal $2 $1 | tail -n +3 | awk -v n=${dayIs} -v sW="$4" ' NR==sW { printf "%02d", $n } ')
 
-#retval="19"
-        printf ${retval}
+	if [[ "${4}" == "LA" ]]; then
+	        retval=$(cal $2 $1 | tail -n +3 | awk -v n=${dayIs} ' $0!="" { printf "%02d\n", $n } ' | tail -n 1)
+	else
+        	retval=$(cal $2 $1 | tail -n +3 | awk -v n=${dayIs} -v sW="$4" ' NR==sW { printf "%02d", $n } ')
+	fi
+	printf ${retval}
 }
 

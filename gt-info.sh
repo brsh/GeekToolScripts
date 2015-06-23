@@ -325,37 +325,79 @@ function HowLongUntil {
 	echo " ~Days~Next Date~Years" | awk 'BEGIN{FS="~"}{ printf "%-23s %6s        %-10s        %5s", $1, $2, $3, $4; }'
 	printf "\n"
 
-	#here's where we parse the file
 	local Where="$(dirname $0)/data"
-	if [ -r "${Where}/dates.txt" ]; then
-		while IFS=, read -r f1 f2 f3; do
-			OutBDay "${f2}" "${f1}" "${f3}"
-			printf "\n"
-		done < "${Where}/dates.txt"
+	local What=""
 
+	#here's where we parse the dates file
+	What="${Where}/dates.txt"
+	if [ -r "${What}" ]; then
+		while IFS=, read -r fTitle fDate fFlag; do
+			OutBDay "${fDate}" "${fTitle}" "${fFlag}"
+			printf "\n"
+		done < "${What}"
 	fi
 
-	#and here're the manual items
+	local tHold=""
+	local tAlways=""
+	local tDateDiff=""
+	local tCloseTitle=""
+	local tCloseDate=""
+	local tCloseDiff=-31557700
+	#here's where we parse the holidays file
+	What="${Where}/holidays.txt"
+	if [ -r "${What}" ]; then
+		while IFS=, read -r fTitle fDate fDisplay fType; do
+			if [[ "${fDisplay}" == "Always" ]]; then
+				#Figure out the ones we always want to show
+				if [[ "${fType}" == "FindNext" ]]; then
+					tHold="$(FindNextOccurence ${fDate})-00-00"
+				else
+					tHold="${fDate}-00-00"
+				fi
+				#And add them to the Always var for display later
+				tAlways+="$(OutBDay "${tHold}" "${fTitle}" 1)\n"
+			else
+				#Let's figure if this is the "next" holiday
+				if [[ "${fType}" == "FindNext" ]]; then
+					tHold="$(FindNextOccurence ${fDate})-00-00"
+				else
+					tHold="${fDate}-00-00"
+				fi
+				#Run through a calc to see if this is a future holiday
+				tDateDiff="$((( $(date -j +%s) - $(date -jf "%m/%d/%Y-%H-%M" ${tHold:0:6}$(date -j +%Y)-00-00 +%s))))"
+				if (( ${tDateDiff} < 0 )); then
+					#Now check if we have a holiday saved; and save it if it's closer to now
+					if (( ${tDateDiff} > ${tCloseDiff} )); then
+						tCloseTitle="${fTitle}"
+						tCloseDate="${tHold}"
+						tCloseDiff="${tDateDiff}"
+					fi
+				fi
+			fi
+		done < "${What}"
+		#Print the always items
+		printf "${tAlways}"
+		#Print the close date, only if we have one
+		if [[ "${tCloseTitle}" != "" ]]; then
+			OutBDay "${tCloseDate}" "${tCloseTitle}" 1
+		fi
+	fi
+
+	#and here're samples of manual items
 	#Thanksgiving is special (4 thurs in Nov)
-	OutBDay "$(FindNextOccurence 11 TH 4)-00-00" "Thanksgiving" 1
-	printf "\n"
-
-	OutBDay "12/25/2014-00-00" "Christmas" 1
-	printf "\n"
-	OutBDay "01/01/2015-00-00" "New Years" 1
-	printf "\n"
-#	OutBDay "$(FindNextOccurence 03 SU 2)-00-00" "DST Starts (Lose)" 1
-#	printf "\n"
-#	OutBDay "$(FindNextOccurence 11 SU 1)-00-00" "DST Ends (Gain!)" 1
-#	printf "\n"
-
+	#	OutBDay "$(FindNextOccurence 11 TH 4)-00-00" "Thanksgiving" 1
+	#	printf "\n"
+	#	OutBDay "12/25/2014-00-00" "Christmas" 1
+	#	printf "\n"
+	#	OutBDay "01/01/2015-00-00" "New Years" 1
+	#	printf "\n"
 }
 
 function FindNextOccurence {
 	#Syntax: FindNextOccurence Month Day Which
 	#	where Month is 2 digits for month
 	#         Day is 2 letters (CAP'd) of the day (MO, TU, WE, etc)
-	#		  Which is which one (1 = first, 2 = second, etc)
+	#		  Which is which one (1 = first, 2 = second, LA = last, etc)
 	#Finds the next occurence of a holiday that occurs on different dates each year
 	#Thanksgiving is 4th Thurs in Nov (so "FindNextOccurence 11 TH 4")
 	#President's Day is 3rd Mon in Feb (so "FindNextOccurence 2 MO 3")
