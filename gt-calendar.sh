@@ -7,7 +7,7 @@ cForeground=${White}
 cDimmest=${Black}
 cDimmer=${Yellow}
 cCurrent=${Color_Off}
-cHighlight=${cBackground}
+cHighlight=${BWhite}${cBackground}
 
 function trim() {
 	local var=$@
@@ -84,7 +84,7 @@ printf "${WEEK}"
 #Display the calendars
 printf "${cDimmest}${PAST}${Color_Off}"
 printf "${cDimmer}${PREV}${Color_Off}"
-printf "${cCurrent}${CURR}${Color_Off}" 
+printf "${cCurrent}${CURR}${Color_Off}"
 printf "${cDimmer}${NEXT}${Color_Off}"
 printf "${cDimmest}${FUTR}${Color_Off}"
 
