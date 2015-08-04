@@ -134,9 +134,10 @@ function specday {
         esac
 
 	if [[ "${4}" == "LA" ]]; then
-	        retval=$(cal $2 $1 | tail -n +3 | awk -v n=${dayIs} ' $0!="" { printf "%02d\n", $n } ' | tail -n 1)
+	        retval=$(cal $2 $1 | tail -n +3 | sed -e 's/\(..\)\(.\)/\1~/g' -e 's/\ //g' | awk -v n=${dayIs} ' BEGIN { FS="~"} $n!="" { printf "%02d\n", $n } ' | tail -n 1)
 	else
-        	retval=$(cal $2 $1 | tail -n +3 | awk -v n=${dayIs} -v sW="$4" ' NR==sW { printf "%02d", $n } ')
+#        	retval=$(cal $2 $1 | tail -n +3 | awk -v n=${dayIs} -v sW="$4" ' NR==sW { printf "%02d", $n } ')
+			retval=$(cal $2 $1 | tail -n +3 | sed -e 's/\(..\)\(.\)/\1~/g' -e 's/\ //g' | awk -v n=${dayIs} -v sW="$4" ' BEGIN {FS="~"} NR==sW { if ($n=="") getline; printf "%02d", $n } ')
 	fi
 	printf ${retval}
 }

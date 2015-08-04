@@ -411,13 +411,13 @@ function FindNextOccurence {
 	iNumber="${3}"
 	#What's the current year
 	tYear=$(date -j +%Y)
-	tDay=$(specday ${tYear} ${sMonth} ${sDay} ${iNumber})
+	tDay=$(specday "${tYear}" "${sMonth}" "${sDay}" "${iNumber}")
 	#Now check if we've passed that month and day this year
 	#Note: I force base 10 on all the numbers because bash can get confused with leading 0's
 	if (( 10#$(date -j +%m) == 10#${sMonth} && 10#$(date -j +%d) > 10#${tDay} )) || (( 10#$(date -j +%m) > 10#${sMonth} )) ; then
 			#Recalc the date for next year 
 			tYear=$(date -j -v+1y +%Y)
-			tDay=$(specday ${tYear} ${sMonth} ${sDay} ${iNumber})
+			tDay=$(specday "${tYear}" "${sMonth}" "${sDay}" "${iNumber}")
 	fi
 	#and return the date we found
 	printf "${sMonth}/${tDay}/${tYear}"	
