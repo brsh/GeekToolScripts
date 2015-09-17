@@ -193,33 +193,41 @@ if [[ "${Domain}" && "${Domain-x}" ]]; then
 
 	# DNS-style domain name
 	LDAPName=$(dsconfigad -show | awk ' BEGIN {FS="="} /Forest/ { gsub(" ",""); print $2 }')
-	# LDAP-style domain name
-	LDAProot=$(dscl localhost -read /Active\ Directory/${Domain}/${LDAPName} LDAPSearchBaseSuffix 2> /dev/null | awk '{ print tolower($2) }')
+	local IsItAlive=$(ping -Q -c 2 -W 500 dolby.net | awk '/timeout/ { print "dead"; exit }')
 
-	# When was the password last set (in seconds)
-	PwdLastSet=$(dscl localhost -read /Active\ Directory/${Domain}/${LDAPName}/Users/${Me} SMBPasswordLastSet 2> /dev/null| awk '{ printf "%d", ($2 / 10000000 - 11644473600) }') 
+	#My later "cheat" of killing the ldap query after 5 seconds stopped working
+	#So, instead, let's try a simple ping to see if the domain lives
+	#Drawback - it has to ping and fail, which takes time;
+	#           and it could fail because ping...
+	if [[ "${IsItAlive}" != "dead" ]]; then
+		# LDAP-style domain name
+		LDAProot=$(dscl localhost -read /Active\ Directory/${Domain}/${LDAPName} LDAPSearchBaseSuffix 2> /dev/null | awk '{ print tolower($2) }')
 
-	# How old can the password be (in seconds)
-	# and kill it in 5 seconds if it takes too long
-	# note: the killall method is potentially dangerous if you use ldapsearch for anything else
-	(sleep 5 && killall ldapsearch 2> /dev/null) & PwdMaxAge=$(ldapsearch -LLL -Q -s base -H ldap://${LDAPName} -b "${LDAProot}" maxPwdAge 2> /dev/null | awk '/maxPwdAge/ {print (($2 * -1) / 10000000) }')
+		# When was the password last set (in seconds)
+		PwdLastSet=$(dscl localhost -read /Active\ Directory/${Domain}/${LDAPName}/Users/${Me} SMBPasswordLastSet 2> /dev/null| awk '{ printf "%d", ($2 / 10000000 - 11644473600) }') 
 
-	if [[ "${PwdMaxAge}" && "${PwdMaxAge-x}" ]]; then
-		# Figure out the important date information
-		local Now=$(date -j +%s)
-		local WhenLast=$(date -r ${PwdLastSet} +'%a, %b %d, %Y')
-		local WhenNextSec=$(( PwdLastSet + PwdMaxAge ))
-		local WhenNext=$(date -r ${WhenNextSec} +'%a, %b %d, %Y')
-		local WhenNextDays=$(( (${WhenNextSec} - ${Now}) / 60 / 60 / 24 ))
-	fi
-	
-	if [[ "${WhenLast}" && "${WhenLast-x}" ]]; then
-		# Print what we've found
-		printf "\n"
-		#printf "   UserName:          ${Me}\n"
-		#printf "   AD Domain:         ${Domain} (${LDAPName})\n"
-		printf "   ${Item}AD Password last set:${Color_Off} ${Text}${WhenLast}${Color_Off}\n"
-		printf "   ${Item}AD Password NEXT set:${Color_Off} ${Text}${WhenNext}  (in ${WhenNextDays} days)${Color_Off}\n"
+		# How old can the password be (in seconds)
+		# and kill it in 5 seconds if it takes too long
+		# note: the killall method is potentially dangerous if you use ldapsearch for anything else
+		(sleep 5 && killall ldapsearch 2> /dev/null) & PwdMaxAge=$(ldapsearch -LLL -Q -s base -H ldap://${LDAPName} -b "${LDAProot}" maxPwdAge 2> /dev/null | awk '/maxPwdAge/ {print (($2 * -1) / 10000000) }')
+
+		if [[ "${PwdMaxAge}" && "${PwdMaxAge-x}" ]]; then
+			# Figure out the important date information
+			local Now=$(date -j +%s)
+			local WhenLast=$(date -r ${PwdLastSet} +'%a, %b %d, %Y')
+			local WhenNextSec=$(( PwdLastSet + PwdMaxAge ))
+			local WhenNext=$(date -r ${WhenNextSec} +'%a, %b %d, %Y')
+			local WhenNextDays=$(( (${WhenNextSec} - ${Now}) / 60 / 60 / 24 ))
+		fi
+
+		if [[ "${WhenLast}" && "${WhenLast-x}" ]]; then
+			# Print what we've found
+			printf "\n"
+			#printf "   UserName:          ${Me}\n"
+			#printf "   AD Domain:         ${Domain} (${LDAPName})\n"
+			printf "   ${Item}AD Password last set:${Color_Off} ${Text}${WhenLast}${Color_Off}\n"
+			printf "   ${Item}AD Password NEXT set:${Color_Off} ${Text}${WhenNext}  (in ${WhenNextDays} days)${Color_Off}\n"
+		fi
 	fi
 fi
 }
