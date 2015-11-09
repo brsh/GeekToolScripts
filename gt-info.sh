@@ -330,7 +330,7 @@ function HowLongUntil {
 
 	#here's the heading
 	printf "${SubHead}"
-	echo " ~Days~Next Date~Years" | awk 'BEGIN{FS="~"}{ printf "%-23s %6s        %-10s        %5s", $1, $2, $3, $4; }'
+	echo " ~Days~Next  Occurrence~Years" | awk 'BEGIN{FS="~"}{ printf "%-23s %6s     %-10s     %5s", $1, $2, $3, $4; }'
 	printf "\n"
 
 	local Where="$(dirname $0)/data"
