@@ -449,7 +449,7 @@ if [ ${What} -eq 1 ] || [ ${What} -gt 90 ]; then get-hardware; fi
 if [ ${What} -eq 2 ] || [ ${What} -gt 90 ]; then get-net; fi
 if [ ${What} -eq 3 ] || [ ${What} -gt 90 ]; then get-disk; fi
 if [ ${What} -eq 4 ] || [ ${What} -gt 90 ]; then get-screen; fi
-if [ ${What} -eq 5 ] || [ ${What} -gt 90 ]; then get-panics; fi
+if [ ${What} -eq 5 ] || [ ${What} -gt 190 ]; then get-panics; fi
 if [ ${What} -eq 6 ] || [ ${What} -gt 90 ]; then get-users; fi
 if [ ${What} -eq 7 ] || [ ${What} -gt 90 ]; then date-info; fi
 if [ ${What} -eq 8 ] || [ ${What} -gt 90 ]; then HowLongUntil; fi
