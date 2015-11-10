@@ -1,5 +1,7 @@
 #!/bin/bash
+#Set the script's home directory
 ScriptLoc="$(dirname $0)/lib"
+#Now load the color and time_math libraries
 source ${ScriptLoc}/lib_colors.sh
 source ${ScriptLoc}/lib_time.sh
 
@@ -21,9 +23,13 @@ local WiFiDeets=""
 local ifconfig=""
 local ipconfig=""
 local AllInfo=""
+local IntStatus=""
 
+#List out ALL of the network interfaces
 for INTs in $(ifconfig -l); do
+	#But we only care about the "active" interfaces with 'en' in them 
 	if [ "${INTs:0:2}" = "en" ]; then
+		#Reset used vars to empty (keeps output cleaner and more correct)
 		retval=""
 		ipaddr=""
 		masktemp=""
@@ -35,68 +41,99 @@ for INTs in $(ifconfig -l); do
 		DNSServer=""
 		ConType=""
 		MACAddr=""
-		WifiDeets=""
+		WiFiDeets=""
 		ifconfig=""
 		ipconfig=""
+		IntStatus=""
 		
+		#Run ifconfig against the interface, specifically, and pull out pieces of info
 		ifconfig="$(ifconfig ${INTs})"
-		ipaddr=$(echo "${ifconfig}" | awk '/inet[[:space:]]/ {print $2 }')
+		IntStatus="$(echo "${ifconfig}" | awk '/status:[[:space:]]/ {print tolower($2)}')"
+		if [ "${IntStatus}" = "active" ]; then
+			#IP Address
+			ipaddr=$(echo "${ifconfig}" | awk '/inet[[:space:]]/ {print $2 }')
 
-		masktemp=$(echo "${ifconfig}" | awk '/inet[[:space:]]/ {print $4 }')
-		if [ ${#masktemp} -eq 10 ]; then
-			netcalc="$((0x${masktemp:2:2} / 0x1)).$((0x${masktemp:4:2} / 0x1)).$((0x${masktemp:6:2} / 0x1)).$((0x${masktemp:8:2} / 0x1))"
-		else
-			netcalc="n/a"
-		fi
-
-		MACAddr=$(echo "${ifconfig}" | awk '/ether[[:space:]]/ {print $2 }')
-		
-		defgateway=$(netstat -nr | awk ' $1 == "default" { if ($6=="'${INTs}'") print $2 } ')
-		
-		ConType=$(networksetup -listallhardwareports | grep -B1 ${INTs} | awk -F:  ' /Port/ { sub("Hardware Port: ",""); print }')
-		if [ "${ConType}" = "Wi-Fi" ]; then
-			SSID=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/A/Resources/airport -I | awk ' / SSID:/ { print $2 }')
-			if ! [[ "${SSID}" && "${SSID-x}" ]]; then
-				SSID="n/a"
+			#Net Mask
+			masktemp=$(echo "${ifconfig}" | awk '/inet[[:space:]]/ {print $4 }')
+			#Check that the netmask is in the right format (cheat by using length)
+			if [ ${#masktemp} -eq 10 ]; then
+				#Convert the netmask to from Hex to dotted decimal
+				netcalc="$((0x${masktemp:2:2} / 0x1)).$((0x${masktemp:4:2} / 0x1)).$((0x${masktemp:6:2} / 0x1)).$((0x${masktemp:8:2} / 0x1))"
 			else
-				#System_Profiler is ... slow (it's an inventory)
-				#Disabling this 'else' call will speed things up a little
-				#(and it won't break the display of info below)
-				WiFiDeets=" - $(system_profiler SPAirPortDataType | grep -A10 "Current Network Information" | awk ' /PHY Mode:/ { print $3 }')"
+				netcalc="n/a"
 			fi
-		fi
+
+			#MAC Address
+			MACAddr=$(echo "${ifconfig}" | awk '/ether[[:space:]]/ {print $2 }')
 		
-		ipconfig=$(ipconfig getpacket ${INTs})		
-		DHCPServer=$(echo "${ipconfig}" | awk ' BEGIN { FS="[=:]" }; /server_identifier/ {$1=""; gsub(" ","",$0); print $0 }')
-		if ! [[ "${DHCPServer}" && "${DHCPServer-x}" ]]; then
-			DHCPServer="Static IP or no DHCPServer"
-# 		else
-# 			#Have to review DHCP lease time
-# 			#ipconfig doesn't actually show when the lease was granted (so this calc is wrong)
-# 			#btw - /private/var/db/dhcpclient/leases/ holds 
-# 			#plus t1 = when it will try to renew with existing dhcpserver
-# 			#and  t2 = when it will try to renew with any dhcpserver
-# 			DHCPLeaseExpires=$(date -r $(echo $(date +%s) + $(( $(echo "${ipconfig}" | awk '/rebinding_t2_time_value[[:space:]]/ { $1=$2=""; print }') / 0x1 )) | bc) +'%a %m/%d/%Y %_I:%M%p')
-# 			DHCPLeaseExpires="(${Item}Lease Expires:${Text} ${DHCPLeaseExpires})${ColorOff}"
-		fi
-		DNSServer=$(echo "${ipconfig}" | awk 'BEGIN { FS="[{}]"}; /domain_name_server[[:space:]]/ { print $2 }')
+			#Default gateway
+			defgateway=$(netstat -nr | awk ' $1 == "default" { if ($6=="'${INTs}'") print $2 } ')
 		
-		if [[ "${ipaddr}" && "${ipaddr-x}" ]]; then
-			AllInfo="${AllInfo} ${SubHead}${ConType} - interface ${INTs}${Color_Off}\n"
-			AllInfo="${AllInfo}   ${Item}IP Address:${Color_Off}\t${Text}${ipaddr} / ${netcalc}${Color_Off}\n"
-			AllInfo="${AllInfo}   ${Item}MAC Address:${Color_Off}\t${Text}${MACAddr}${Color_Off}\n"
-			AllInfo="${AllInfo}   ${Item}DHCP Server:${Color_Off}\t${Text}${DHCPServer}${ColorOff} ${DHCPLeaseExpires}${ColorOff}\n"
-			AllInfo="${AllInfo}   ${Item}Def Gateway:${Color_Off}\t${Text}${defgateway}${Color_Off}\n"
-			AllInfo="${AllInfo}   ${Item}DNS Servers:${Color_Off}\t${Text}${DNSServer}${Color_Off}\n"
+			#Shows (among other things) wired vs. wi-fi - we'll check for additional info if Wi-Fi
+			ConType=$(networksetup -listallhardwareports | grep -B1 ${INTs} | awk -F:  ' /Port/ { sub("Hardware Port: ",""); print }')
 			if [ "${ConType}" = "Wi-Fi" ]; then
-				AllInfo="${AllInfo}   ${Item}WiFi SSID:${Color_Off}\t${Text}${SSID}${WiFiDeets}${Color_Off}\n"
+				#SSID
+				SSID=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/A/Resources/airport -I | awk ' / SSID:/ { print $2 }')
+				if ! [[ "${SSID}" && "${SSID-x}" ]]; then
+					SSID="n/a"
+				else
+					#Wi-Fi Standard (a, b, g, n, ac...) and color-coded signal strength
+					#Pulls out the current interface first, in case there are multiple wireless adapters connected...
+					#!! System_Profiler is ... slow (it's an inventory)
+					#!! Disabling this 'else' call will speed things up a little
+					#!! (and it won't break the display of info below)
+					WiFiDeets="$(system_profiler SPAirPortDataType | grep -A25 "${INTs}" | grep -A10 "Current Network Information" | awk ' 
+						function isnum(n) { return n ~ /^[+-]?[0-9]+\.?[0-9]*$/ }
+						BEGIN{y=""; off="'${Color_Off}'"; warn="'${Yellow}'"; good="'${Green}'"; alert="'${Red}'"}
+						/PHY Mode:/ { spec=$3 }
+						/Signal \/ Noise:/ { 
+							if (isnum($4) && isnum($7)) x=($4 - $7); else g="error";
+							if (x > 40) sig="/ Signal: "good"Excellent"off;
+							if (x < 41) sig="/ Signal: "good"Good"off;
+							if (x < 26) sig="/ Signal: "warn"Low"off;
+							if (x < 16) sig="/ Signal: "alert"Very Low"off;
+							if (x < 11) sig="/ "alert"No Signal"off;
+							if (g == "error") sig="";
+						}; 
+						END {print " / "spec" "sig}')"
+				fi
 			fi
-			AllInfo="${AllInfo}\n"
+
+			#DHCP information
+			ipconfig=$(ipconfig getpacket ${INTs})		
+			DHCPServer=$(echo "${ipconfig}" | awk ' BEGIN { FS="[=:]" }; /server_identifier/ {$1=""; gsub(" ","",$0); print $0 }')
+			if ! [[ "${DHCPServer}" && "${DHCPServer-x}" ]]; then
+				DHCPServer="Static IP or no DHCPServer"
+	# 		else
+	# 			#Have to review DHCP lease time
+	# 			#ipconfig doesn't actually show when the lease was granted (so this calc is wrong)
+	# 			#btw - /private/var/db/dhcpclient/leases/ holds 
+	# 			#plus t1 = when it will try to renew with existing dhcpserver
+	# 			#and  t2 = when it will try to renew with any dhcpserver
+	# 			DHCPLeaseExpires=$(date -r $(echo $(date +%s) + $(( $(echo "${ipconfig}" | awk '/rebinding_t2_time_value[[:space:]]/ { $1=$2=""; print }') / 0x1 )) | bc) +'%a %m/%d/%Y %_I:%M%p')
+	# 			DHCPLeaseExpires="(${Item}Lease Expires:${Text} ${DHCPLeaseExpires})${ColorOff}"
+			fi
+			#DNS Server(s)
+			DNSServer=$(echo "${ipconfig}" | awk 'BEGIN { FS="[{}]"}; /domain_name_server[[:space:]]/ { print $2 }')
+
+			#This interface's summary		
+			if [[ "${ipaddr}" && "${ipaddr-x}" ]]; then
+				AllInfo="${AllInfo} ${SubHead}${ConType} - interface ${INTs}${Color_Off}\n"
+				AllInfo="${AllInfo}   ${Item}IP Address:${Color_Off}\t${Text}${ipaddr} / ${netcalc}${Color_Off}\n"
+				AllInfo="${AllInfo}   ${Item}MAC Address:${Color_Off}\t${Text}${MACAddr}${Color_Off}\n"
+				AllInfo="${AllInfo}   ${Item}DHCP Server:${Color_Off}\t${Text}${DHCPServer}${ColorOff} ${DHCPLeaseExpires}${ColorOff}\n"
+				AllInfo="${AllInfo}   ${Item}Def Gateway:${Color_Off}\t${Text}${defgateway}${Color_Off}\n"
+				AllInfo="${AllInfo}   ${Item}DNS Servers:${Color_Off}\t${Text}${DNSServer}${Color_Off}\n"
+				if [ "${ConType}" = "Wi-Fi" ]; then
+					AllInfo="${AllInfo}   ${Item}WiFi Info:${Color_Off}\t${Text}${SSID}${WiFiDeets}${Color_Off}\n"
+				fi
+				AllInfo="${AllInfo}\n"
+			fi
 		fi
-	retval=""
 	fi
 done
 
+#And the output (finally!)
 if [[ "${AllInfo}" && "${AllInfo-x}" ]]; then
 	out-Heading "Network Information"
 	printf "${AllInfo}"
@@ -143,13 +180,20 @@ function get-hardware {
 	#CLI 1
 	#pulls some info on the hardware and software
 	local procval=""
+	#Processor model and speed
 	procval=$(sysctl -n machdep.cpu.brand_string | sed 's/(R)//g; s/(TM)//g; s/\ CPU//g; s/Intel\ //g')
+	#How many sockets?
 	local sockets=$(sysctl -n hw.packages)
+	#How many cores
 	local cores=$(sysctl -n hw.physicalcpu)
+	#Hyperthreaded??
 	local threads=$(sysctl -n hw.logicalcpu)
+	#OS version
 	local osver=$(sw_vers | awk ' /ProductName/ { $1=""; sub("^ ",""); printf $0; getline; printf " " $2 }')
 
-	#Fun with awl dates (see a few lines down...)
+	##Note: this next bit has some tricky date work (awk on mac doesn't have the built-in date functions)
+	##I use SQ as a single quote since otherwise, it's even more tricky
+	#Kernel version
 	local kernver=$(sysctl -n kern.version | awk ' func formatdate(dWhen) { SQ="\047"; cmd="date -j -f " SQ "%a %b %d %H:%M:%S %Z %Y" SQ " " SQ "+%m/%d/%Y" SQ " " SQ dWhen SQ; cmd|getline retval; close(cmd); return retval } BEGIN { FS=": \|;" }; { sub("Version ",""); printf $1 " (" formatdate($2) ")" }')
 	
 	#Boot and reboot times
@@ -158,8 +202,6 @@ function get-hardware {
 	local uptime=$((${unixtime} - ${boottime}))
 	uptime="$(LongOutTime ${uptime} m)"
 	local WhenBooted=$(date -r ${boottime} +'%a  %m/%d/%Y  at  %_I:%M%p')
-	##Note: this is a tricky bit of date formatting (awk on mac doesn't have the built-in date functions)
-	##I use SQ as a single quote since otherwise, it's even more tricky
 	##last doesn't include the year, so neither do I.
 	local lastfewboots=$(last | awk ' func formatdate(dM, dD, dH) {SQ="\047"; cmd="date -j -f " SQ "%b %d %H:%M" SQ " " SQ "+%m/%d       at  %_I:%M%p" SQ " " SQ dM " " dD " " dH SQ ; cmd|getline retval; close(cmd); return retval } BEGIN { x=0 } /reboot|shutdown/ { if (x>0) printf "\t\t\t%3s  %-21s  (%5s)\n", $3,formatdate($4,$5,$6),$1 ; if (x==4) exit; else x+=1 }')
 
@@ -170,16 +212,17 @@ function get-hardware {
 	printf "   ${Item}Up for:${Color_Off} \t${Text}${uptime}${Color_Off}\n"
 	printf "   ${Item}Booted:${Color_Off}\t${Text}${WhenBooted}  (current boot)${Color_Off}\n"
 	printf "${Color_Off}${Text}${lastfewboots}${Color_Off}\n"
+	#Now, spin off to the AD function for password expiry info
 	get-ADPassword
 	printf "\n"
 }
 
 function get-ADPassword {
 ##Pull domain and password info
-# Username
+# Username and Domain 
+## I keep these commented out of the final display - security!
 local Me=""
 local Domain=""
-
 
 Me=$(whoami)
 # SMB-style domain name
@@ -195,10 +238,10 @@ if [[ "${Domain}" && "${Domain-x}" ]]; then
 	LDAPName=$(dsconfigad -show | awk ' BEGIN {FS="="} /Forest/ { gsub(" ",""); print $2 }')
 	local IsItAlive=$(ping -Q -c 2 -W 500 dolby.net | awk '/timeout/ { print "dead"; exit }')
 
-	#My later "cheat" of killing the ldap query after 5 seconds stopped working
+	#My simple "cheat" of killing the ldap query after 5 seconds stopped working
 	#So, instead, let's try a simple ping to see if the domain lives
 	#Drawback - it has to ping and fail, which takes time;
-	#           and it could fail because ping...
+	#           and it could fail cause... ping
 	if [[ "${IsItAlive}" != "dead" ]]; then
 		# LDAP-style domain name
 		LDAProot=$(dscl localhost -read /Active\ Directory/${Domain}/${LDAPName} LDAPSearchBaseSuffix 2> /dev/null | awk '{ print tolower($2) }')
@@ -207,7 +250,7 @@ if [[ "${Domain}" && "${Domain-x}" ]]; then
 		PwdLastSet=$(dscl localhost -read /Active\ Directory/${Domain}/${LDAPName}/Users/${Me} SMBPasswordLastSet 2> /dev/null| awk '{ printf "%d", ($2 / 10000000 - 11644473600) }') 
 
 		# How old can the password be (in seconds)
-		# and kill it in 5 seconds if it takes too long
+		# and kill it in 5 seconds if it takes too long (this stopped working at some point... keeping it cause... reasons)
 		# note: the killall method is potentially dangerous if you use ldapsearch for anything else
 		(sleep 5 && killall ldapsearch 2> /dev/null) & PwdMaxAge=$(ldapsearch -LLL -Q -s base -H ldap://${LDAPName} -b "${LDAProot}" maxPwdAge 2> /dev/null | awk '/maxPwdAge/ {print (($2 * -1) / 10000000) }')
 
@@ -235,8 +278,8 @@ fi
 function get-panics {
 	#CLI 5
 	#If there've been any kernel panics reported in the system log, this will find 'em
+	#Note: this stopped working in (or around) El Capitan (or earlier, who knows. Really only needed it in Mountain Lion)
 	local retval=""
-	#retval=$(system_profiler SPLogsDataType | grep -A7 "Panic (system" | grep -vE "Source|Size|Modified|Contents|Panic|--" | tr -d "\n" | sed -e 's/^/\ \ /g' | tail -3 )
 
 	retval=$(system_profiler SPLogsDataType | grep -A7 "Panic (system" | awk 'func formatdate(dWhen) { SQ="\047"; cmd="date -j -f " SQ "%a %b %d %H:%M:%S %Y" SQ " " SQ "+%a  %m/%d/%Y at %_I:%M%p" SQ " " SQ dWhen SQ; cmd|getline retval; close(cmd); return retval } BEGIN {i=0}; /^[a-zA-Z]/ { i+=1; printf "  %s", formatdate($0); if (i==3) exit; }')
 
@@ -255,8 +298,10 @@ function date-info {
 	#in the user's home directory under .calendar
 	#see man calendar for more information...
 	if [ -r "${HOME}/.calendar/calendar" ]; then
+		#So, we run calendar, strip the date, wrap it at '73' characters, then use awk to wrap line 2 and put an * on line 1 (with color controls)
 		retval=$(calendar -W 0 | sed -E "s/$(date -j '+%b %_d')../~ /" | fold -s -w 73 | awk ' $1!="~" { printf "    %s'${Color_Off}'\n", $0 } $1=="~" { $1=""; printf "'${Item}'*'${Text}'%s\n", $0 };')
 		if ! [ -z "${retval}" ]; then
+			#Only show this heading if there's some data to show with it...
 			out-Heading "On this day in history..."
 			echo "${retval}"
 			printf "\n"
