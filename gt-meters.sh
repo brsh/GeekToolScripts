@@ -83,8 +83,12 @@ function out-disk {
 }
 
 OPTIND=1 # Reset is necessary if getopts was used previously in the script.  It is a good idea to make this local in a function.
-while getopts ":lcmdbp" opt; do
+while getopts ":lcmdbpw:g:" opt; do
 	case "$opt" in
+		w ) Width=$OPTARG
+		;;
+		g ) BG=$OPTARG
+		;;
 		l ) out-load
 		;;
 		c ) out-cpu
